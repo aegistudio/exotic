@@ -61,10 +61,20 @@ public:
 	/// Test whether a pointer is null pointer.
 	bool operator==(decltype(nullptr) nullPointer) const noexcept
 		{ return pointer == nullptr; }
+	bool operator!=(decltype(nullptr) nullPointer) const noexcept
+		{ return pointer != nullptr; }
+	
+	// Set the pointer to null pointer.
+	randomPointer& operator=(decltype(nullptr) nullPointer) {
+		pointer = nullptr;
+		return *this;
+	}
 	
 	/// Test whether two pointers are equal.
-	bool operator==(randomPointer& a) const noexcept 
+	bool operator==(const randomPointer& a) const noexcept 
 		{ return pointer == a.pointer; }
+	bool operator!=(const randomPointer& a) const noexcept 
+		{ return pointer != a.pointer; }
 	
 	/// Convert the random pointer into a pointer access type.
 	template<typename contextType> randomPointerAccess<targetType> 
@@ -100,12 +110,24 @@ private:
 public:
 	// Instantiate the pointer access.
 	randomPointerAccess(pointerType& ref) noexcept: ref(ref) {}
+
+	// The chain assignment operator.
+	randomPointerAccess& operator=(randomPointerAccess& r) noexcept {
+		ref.pointer = r.ref.pointer;
+		return *this;
+	}
 	
 	// Retrieve the containing object of the pointer.
 	operator targetType*() noexcept { return ref.pointer; }
 	
 	// Retrieve the const containing of the pointer.
 	operator targetType const*() const noexcept { return ref.pointer; }
+	
+	// Forward the operator->() to access member functions.
+	targetType* operator->() noexcept 
+		{ return ref.pointer; }
+	const targetType* operator->() const noexcept 
+		{ return ref.pointer; }
 	
 	// Update the value of the pointer access.
 	randomPointerAccess& operator=(targetType* newPointer) noexcept {
@@ -137,10 +159,20 @@ public:
 	/// Test whether a pointer is null pointer.
 	bool operator==(decltype(nullptr) nullPointer) const noexcept
 		{ return index == 0; }
+	bool operator!=(decltype(nullptr) nullPointer) const noexcept
+		{ return index != 0; }
+	
+	// Set the pointer to null pointer.
+	indexPointer& operator=(decltype(nullptr) nullPointer) {
+		index = 0;;
+		return *this;
+	}
 	
 	/// Test whether two pointers are equal.
-	bool operator==(indexPointer& a) const noexcept 
+	bool operator==(const indexPointer& a) const noexcept 
 		{ return index == a.index; }
+	bool operator!=(const indexPointer& a) const noexcept 
+		{ return index != a.index; }
 	
 	/// Convert the random pointer into a pointer access type.
 	template<typename contextType> 
@@ -185,6 +217,12 @@ public:
 	indexPointerAccess(contextType& ctx, pointerType& ref) noexcept:
 		ctx(ctx), ref(ref) {}
 	
+	// The chain assignment operator.
+	indexPointerAccess& operator=(indexPointerAccess& r) noexcept {
+		ref.index = r.ref.index;
+		return *this;
+	}
+	
 	// Retrieve the pointer of the object contained in the object.
 	operator targetType*() noexcept {
 		if(ref.index == 0) return nullptr;
@@ -196,6 +234,12 @@ public:
 		if(ref.index == 0) return nullptr;
 		else return ctx.constIndex(ref.index - 1);
 	}
+	
+	// Forward the operator->() to access member functions.
+	targetType* operator->() noexcept 
+		{ return (targetType*)*this; }
+	const targetType* operator->() const noexcept 
+		{ return (const targetType*)*this; }
 	
 	// Update the value of the index.
 	indexPointerAccess& operator=(targetType* newPointer) noexcept {
