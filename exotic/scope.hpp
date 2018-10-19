@@ -66,6 +66,11 @@ struct virtualContainerHolder {
 	void update(virtualContainer<nodeType>* newContainer) noexcept {
 		container = newContainer;
 	}
+	
+	/// Judge the whether the node is contained by the virtual container.
+	bool containedBy(virtualContainer<nodeType>* c) const noexcept {
+		return c == container;
+	}
 };
 
 // Forward declaration for friend class declaring.
@@ -83,6 +88,13 @@ struct nullContainerHolder {
 	
 	/// Update container will also do nothing.
 	void update(nullContainer<nodeType>* newContainer) noexcept {}
+	
+	/// Insufficient information for judging whether the node is 
+	/// contained by any container. But true will be returned so 
+	/// that a container could be created at least.
+	bool containedBy(nullContainer<nodeType>* c) const noexcept {
+		return true;
+	}
 };
 
 

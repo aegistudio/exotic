@@ -19,7 +19,9 @@ namespace exotic {
 /// @brief Node in the linked list. Please embed it into your data structure.
 template<template<typename> typename pointerType, template<typename> typename scopeType>
 class listNode : private scopeType<listNode<pointerType, scopeType>>::nodeScopeType {
-	typedef typename scopeType<listNode<pointerType, scopeType>>::nodeScopeType nodeScopeType;
+	typedef scopeType<listNode<pointerType, scopeType>> scopingType;
+	typedef typename scopingType::nodeScopeType nodeScopeType;
+	typedef typename scopingType::containerScopeType containerScopeType;
 	
 	/// The next node in the linked list. Will be null if it is currently 
 	/// the last node in the linked list.
@@ -59,6 +61,14 @@ class listNode : private scopeType<listNode<pointerType, scopeType>>::nodeScopeT
 	
 	/// The friend declaration.
 	template<typename, typename, typename> friend class container;
+	
+	/// The ownership checking. Return -1 when the node is not contained by
+	/// any container, return 0 when the node is contained by the specified
+	/// container, and return 1 if the node is contained by other container.
+	int containerCompare(containerScopeType* containerScope) const noexcept {
+		if(previous == nullptr && next == nullptr) return -1;
+		else return nodeScopeType::containedBy(containerScope)? 0 : 1;
+	}
 public:
 	/// Construct a linked list node. By setting all node values
 	///	to nullptr.
@@ -156,7 +166,48 @@ public:
 		if(node == nullptr) return nullptr;
 		else return node -> previous(*this);
 	}
+	
+	/// Iterate forward from a specified node. For modes that does not 
+	/// have the container's information, it is possible for that node
+	/// to create a wrong iterator (but such wrong method is still 
+	/// required, you have to write carefully this way).
+	forwardIteratorType from(objectType& object) noexcept {
+		nodeType* node = &accessType::nodeOf(object);
+		if(node -> containerCompare(this) != 0) return end();
+		else return forwardIteratorType(*this, node);
+	}
+	
+	/// Iterate backward from a specified node. The correctness of this 
+	/// method is the same as the forward one.
+	backwardIteratorType rfrom(objectType& object) noexcept {
+		nodeType* node = &accessType::nodeOf(object);
+		if(node -> containerCompare(this) != 0) return rend();
+		else return backwardIteratorType(*this, node);
+	}
 private:
+	// Check whether a specified forward and backward iterator is the iterator 
+	// of this container.
+	inline bool hasIterator(const forwardIteratorType& iter) const noexcept 
+		{	return (&(iter.containerObject) == this);	}
+	
+	inline bool hasIterator(const backwardIteratorType& iter) const noexcept 
+		{	return (&(iter.containerObject) == this);	}
+	
+	// Check whether the node can be inserted into this container.
+	inline bool canInsert(const forwardIteratorType& iter, objectType& object) noexcept {
+		if(!hasIterator(iter)) return false;
+		nodeType& node = accessType::nodeOf(object);
+		if(node.containerCompare(this) != -1) return false;
+		return true;
+	}
+	
+	inline bool canInsert(const backwardIteratorType& iter, objectType& object) noexcept {
+		if(!hasIterator(iter)) return false;
+		nodeType& node = accessType::nodeOf(object);
+		if(node.containerCompare(this) != -1) return false;
+		return true;
+	}
+	
 	/// Do common work of insert-after, and return true if iterator specific 
 	/// work is to be done.
 	inline bool commonInsertAfter(nodeType& node, nodeType* current) noexcept {
@@ -178,7 +229,8 @@ private:
 	}
 public:
 	/// Insert the node after the iterator's node.
-	void insertAfter(forwardIteratorType iterator, objectType& object) noexcept {
+	bool insertAfter(forwardIteratorType iterator, objectType& object) noexcept {
+		if(!canInsert(iterator, object)) return false;
 		nodeType& node = accessType::nodeOf(object);
 		
 		// Perform common insertion, and do our own work if iterator specific 
@@ -187,10 +239,13 @@ public:
 			last(*this) -> insertAfter(*this, node);
 			last(*this) = &node;
 		}
+		node.update(this);
+		return true;
 	}
 	
 	/// Insert the node after the iterator's node.
-	void insertAfter(backwardIteratorType iterator, objectType& object) noexcept {
+	bool insertAfter(backwardIteratorType iterator, objectType& object) noexcept {
+		if(!canInsert(iterator, object)) return false;
 		nodeType& node = accessType::nodeOf(object);
 		
 		// Perform common insertion, and do our own work if iterator specific 
@@ -199,6 +254,8 @@ public:
 			first(*this) -> insertBefore(*this, node);
 			first(*this) = &node;
 		}
+		node.update(this);
+		return true;
 	}
 private:
 	/// Do common work of insert-before, and return true if iterator specific work is 
@@ -222,7 +279,8 @@ private:
 	}
 public:
 	/// Insert the node before the forward iterator's node.
-	void insertBefore(forwardIteratorType iterator, objectType& object) noexcept {
+	bool insertBefore(forwardIteratorType iterator, objectType& object) noexcept {
+		if(!canInsert(iterator, object)) return false;
 		nodeType& node = accessType::nodeOf(object);
 		
 		// Perform common insertion, and do our own work if iterator specific 
@@ -231,10 +289,13 @@ public:
 			last(*this) -> insertAfter(*this, node);
 			last(*this) = &node;
 		}
+		node.update(this);
+		return true;
 	}
 	
 	/// Insert the node before the backward iterator's node.
-	void insertBefore(backwardIteratorType iterator, objectType& object) noexcept {
+	bool insertBefore(backwardIteratorType iterator, objectType& object) noexcept {
+		if(!canInsert(iterator, object)) return false;
 		nodeType& node = accessType::nodeOf(object);
 		
 		// Perform common insertion, and do our own work if iterator specific 
@@ -243,6 +304,8 @@ public:
 			first(*this) -> insertBefore(*this, node);
 			first(*this) = &node;
 		}
+		node.update(this);
+		return true;
 	}
 	
 	/// Erase a node and return the next node followed.
@@ -250,6 +313,10 @@ public:
 	iteratorType erase(iteratorType iterator) noexcept {
 		if(iterator.current == nullptr) return iteratorType(*this, nullptr);
 		else {
+			// Directly return the end iterator if it is not inside the container.
+			if(&(iterator.containerObject) != this) 
+				return iteratorType(*this, nullptr);
+			
 			// Fetch the potential result first.
 			iteratorType result = iterator;
 			++ result;
@@ -260,13 +327,15 @@ public:
 			if(current == first) first = next;
 			if(current == last) last = current -> previous;
 			current -> removeFromList();
+			current -> update(nullptr);
 			return result;
 		}
 	}
 	
 	/// Perform push front operation, which will surely insert the node at the front.
-	void pushFront(objectType& object) noexcept {
+	bool pushFront(objectType& object) noexcept {
 		nodeType& node = accessType::nodeOf(object);
+		if(node.containerCompare(this) != -1) return false;
 		
 		// If the list is currently empty, directly set the node.
 		if(empty()) first(*this) = last(*this) = &node;
@@ -276,11 +345,14 @@ public:
 			first(*this) -> insertBefore(*this, node);
 			first(*this) = &node;
 		}
+		node.update(this);
+		return true;
 	}
 	
 	/// Perform push back operation. which will surely insert the node at the back.
 	void pushBack(objectType& object) noexcept {
 		nodeType& node = accessType::nodeOf(object);
+		if(node.containerCompare(this) != -1) return false;
 		
 		// If the list is currently empty, directly set the node.
 		if(empty()) first(*this) = last(*this) = &node;
@@ -290,6 +362,8 @@ public:
 			last(*this) -> insertAfter(*this, node);
 			last(*this) = &node;
 		}
+		node.update(this);
+		return true;
 	}
 	
 	/// Perform pop front operation, which will surely remove the node at the front.
@@ -304,6 +378,7 @@ public:
 			first = removing -> next;
 			if(first == nullptr) last = nullptr;
 			removing -> removeFromList(*this);
+			removing -> update(nullptr);
 			return &accessType::objectOf(*removing);
 		}
 	}
@@ -319,6 +394,7 @@ public:
 			last = removing -> previous;
 			if(last == nullptr) first = nullptr;
 			removing -> removeFromList(*this);
+			removing -> update(nullptr);
 			return &accessType::objectOf(*removing);
 		}
 	}
