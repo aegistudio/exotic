@@ -12,12 +12,15 @@
 
 #include "exotic/container.hpp"
 #include "exotic/pointer.hpp"
+#include "exotic/scope.hpp"
 
 namespace exotic {
 
 /// @brief Node in the linked list. Please embed it into your data structure.
-template<template<typename> typename pointerType>
-class listNode {
+template<template<typename> typename pointerType, template<typename> typename scopeType>
+class listNode : private scopeType<listNode<pointerType, scopeType>>::nodeScopeType {
+	typedef typename scopeType<listNode<pointerType, scopeType>>::nodeScopeType nodeScopeType;
+	
 	/// The next node in the linked list. Will be null if it is currently 
 	/// the last node in the linked list.
 	pointerType<listNode> next;
@@ -25,7 +28,7 @@ class listNode {
 	/// The previous node in the linked list. Will be null if it is currently 
 	/// the first node in the list link.
 	pointerType<listNode> previous;
-		
+	
 	/// Insert a node after the node in the linked list.
 	template<typename contextType>
 	void insertAfter(contextType& ctx, listNode& node) noexcept {
@@ -55,12 +58,14 @@ class listNode {
 	}
 	
 	/// The friend declaration.
-	template<typename, typename, typename> 
-	friend class container;
+	template<typename, typename, typename> friend class container;
 public:
 	/// Construct a linked list node. By setting all node values
-	/// to nullptr.
+	///	to nullptr.
 	listNode() noexcept {}
+	
+	/// The destructor for the node, by invoking scoped method.
+	~listNode() noexcept {	nodeScopeType::remove(*this);	}
 };
 
 /**
@@ -68,11 +73,15 @@ public:
  * last node in the linked list, in order to provide O(1) iterator creation 
  * function().
  */
-template<typename accessType, typename contextType,
-	template<typename> typename pointerType>
-struct container<accessType, contextType, listNode<pointerType>> : private contextType {
+template<typename accessType, typename contextType, 
+	template<typename> typename pointerType, template<typename> typename scopeType>
+struct container<accessType, contextType, listNode<pointerType, scopeType>> : private contextType, 
+	public scopeType<listNode<pointerType, scopeType>>::containerScopeType {
 	/// The type of the linked list node.
-	typedef listNode<pointerType> nodeType;
+	typedef listNode<pointerType, scopeType> nodeType;
+	
+	/// The type of the container scope.
+	typedef typename scopeType<nodeType>::containerScopeType containerScopeType;
 	
 	/// The object type definition's forwarding.
 	typedef typename accessType::objectType objectType;
@@ -89,9 +98,32 @@ private:
 	/// The first and last node in the linked list iterator. Therefore both 
 	/// forward and backward access will be of time complexity O(1).
 	pointerType<nodeType> first, last;
+	
+	/// Perform removal of a node in the context.
+	void remove(nodeType& node) noexcept {
+		if(first(*this) == &node) first = node.next;
+		if(last(*this) == &node) last = node.previous;
+		node.removeFromList(*this);
+	}
 public:
 	/// The initialization of the container.
 	container(contextType&& ctx = {}) noexcept: contextType(ctx) {}
+	
+	/// Check whether the container is empty.
+	inline bool empty() const noexcept { return first == nullptr; }
+	
+	/// The destructor will iteratively reset all internal nodes.
+	~container() noexcept {
+		if(scopeType<nodeType>::containerRemove && !empty()) {
+			nodeType* node = first(*this);
+			while(node != nullptr) {
+				node -> previous(*this) = nullptr;
+				nodeType* nextNode = node -> next(*this);
+				node -> next(*this) = nullptr;
+				node = nextNode;
+			}
+		}
+	}
 	
 	/// Retrieve the forward iterator's starting point via begin().
 	forwardIteratorType begin() noexcept {
@@ -124,9 +156,6 @@ public:
 		if(node == nullptr) return nullptr;
 		else return node -> previous(*this);
 	}
-	
-	/// Check whether the container is empty.
-	inline bool empty() const noexcept { return first == nullptr; }
 private:
 	/// Do common work of insert-after, and return true if iterator specific 
 	/// work is to be done.
