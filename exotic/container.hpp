@@ -35,13 +35,6 @@
  * an access to the node. Finally the container aggregates the nodes 
  * via the node and accessor and provide appropriate iterating and modifying
  * methods to user.
- *
- * And combined with the concepts from exotic/pointer.hpp, all containers
- * should hold a container context as well. In our library, all containers
- * should inherit from the context, construct from a right-value reference
- * of the context and use that data.
- *
- * @see exotic/pointer.hpp
  */
 #include <cstddef>
 #include <type_traits>
@@ -70,8 +63,7 @@ namespace exotic {
 
 /// Primary abstraction for all ADT containers in the library. The underlying
 /// container should implement the 
-template<typename accessType, typename contextType, 
-	typename = typename accessType::nodeType>
+template<typename accessType, typename = typename accessType::nodeType>
 class container {};
 
 /// Holds the mostly used traits in the library. Like begin()/end() and 
@@ -82,9 +74,9 @@ namespace iterateTrait {
 /// Perform forawrd iteration. Like the begin()/end() iteration in STL.
 struct forward {
 	/// The increment method is delegated to the static backward method.
-	template<typename accessType, typename contextType> 
+	template<typename accessType> 
 	static typename accessType::nodeType* next(
-		const container<accessType, contextType>& containerObject,
+		const container<accessType>& containerObject,
 		typename accessType::nodeType* currentNode) noexcept {
 		return containerObject.forward(currentNode);
 	}
@@ -93,9 +85,9 @@ struct forward {
 /// Perform backward iteration. Like the rbegin()/rend() iteration in STL.
 class backward {
 	/// The increment method is delagated to the static backward method.
-	template<typename accessType, typename contextType>
+	template<typename accessType>
 	static typename accessType::nodeType* next(
-		const container<accessType, contextType>& containerObject,
+		const container<accessType>& containerObject,
 		typename accessType::nodeType* currentNode) noexcept {
 		return containerObject.backward(currentNode);
 	}
@@ -104,7 +96,7 @@ class backward {
 }; // namespace exotic::iterateTrait
  
 /// The common iterator built on the abstract data types and the member types.
-template<typename accessType, typename contextType, typename iterateTraitType>
+template<typename accessType, typename iterateTraitType>
 struct iterator {
 	/// The node type that is maintained in the iterator.
 	typedef typename accessType::nodeType nodeType;
@@ -113,7 +105,7 @@ struct iterator {
 	typedef typename accessType::objectType objectType;
 	
 	/// The type of the container which provides access.
-	typedef container<accessType, contextType> containerType;
+	typedef container<accessType> containerType;
 	
 private:
 	/// The reference to the underlying container.
@@ -167,9 +159,9 @@ public:
 };
 
 /// Forward some special iterator traits. Like forward iterator and backward iterator.
-template<typename accessType, typename contextType>
-using forwardIterator = iterator<accessType, contextType, iterateTrait::forward>;
-template<typename accessType, typename contextType>
-using backwardIterator = iterator<accessType, contextType, iterateTrait::backward>;
+template<typename accessType>
+using forwardIterator = iterator<accessType, iterateTrait::forward>;
+template<typename accessType>
+using backwardIterator = iterator<accessType, iterateTrait::backward>;
 
 } // namespace exotic

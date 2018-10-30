@@ -11,56 +11,52 @@
  */
 
 #include "exotic/container.hpp"
-#include "exotic/pointer.hpp"
 #include "exotic/scope.hpp"
 
 namespace exotic {
 
 /// @brief Node in the linked list. Please embed it into your data structure.
-template<template<typename> typename pointerType, template<typename> typename scopeType>
-class listNode : private scopeType<listNode<pointerType, scopeType>>::nodeScopeType {
-	typedef scopeType<listNode<pointerType, scopeType>> scopingType;
+template<template<typename> typename scopeType>
+class listNode : private scopeType<listNode<scopeType>>::nodeScopeType {
+	typedef scopeType<listNode<scopeType>> scopingType;
 	typedef typename scopingType::nodeScopeType nodeScopeType;
 	typedef typename scopingType::containerScopeType containerScopeType;
 	
 	/// The next node in the linked list. Will be null if it is currently 
 	/// the last node in the linked list.
-	pointerType<listNode> next;
+	listNode* next;
 
 	/// The previous node in the linked list. Will be null if it is currently 
 	/// the first node in the list link.
-	pointerType<listNode> previous;
+	listNode* previous;
 	
 	/// Insert a node after the node in the linked list.
-	template<typename contextType>
-	void insertAfter(contextType& ctx, listNode& node) noexcept {
-		node.previous(ctx) = this;
+	void insertAfter(listNode& node) noexcept {
+		node.previous = this;
 		node.next = next;
 		if(next != nullptr)
-			next(ctx) -> previous(ctx) = &node;
-		next(ctx) = &node;
+			next -> previous = &node;
+		next = &node;
 	}
 	
 	/// Insert a node before the node in the linked list.
-	template<typename contextType>
-	void insertBefore(contextType& ctx, listNode& node) noexcept {
+	void insertBefore(listNode& node) noexcept {
 		node.previous = previous;
-		node.next(ctx) = this;
+		node.next = this;
 		if(previous != nullptr)
-			previous(ctx) -> next(ctx) = &node;
-		previous(ctx) = &node;
+			previous -> next = &node;
+		previous = &node;
 	}
 	
 	/// Remove current node from the linked list.
-	template<typename contextType>
-	void removeFromList(contextType& ctx) noexcept {
-		if(previous != nullptr) previous(ctx) -> next = next;
-		if(next != nullptr) next(ctx) -> previous = previous;
+	void removeFromList() noexcept {
+		if(previous != nullptr) previous -> next = next;
+		if(next != nullptr) next -> previous = previous;
 		previous = next = nullptr;
 	}
 	
 	/// The friend declaration.
-	template<typename, typename, typename> friend class container;
+	template<typename, typename> friend class container;
 	
 	/// The ownership checking. Return -1 when the node is not contained by
 	/// any container, return 0 when the node is contained by the specified
@@ -72,7 +68,7 @@ class listNode : private scopeType<listNode<pointerType, scopeType>>::nodeScopeT
 public:
 	/// Construct a linked list node. By setting all node values
 	///	to nullptr.
-	listNode() noexcept {}
+	listNode() noexcept: next(nullptr), previous(nullptr) {}
 	
 	/// The destructor for the node, by invoking scoped method.
 	~listNode() noexcept {	nodeScopeType::remove(*this);	}
@@ -83,12 +79,11 @@ public:
  * last node in the linked list, in order to provide O(1) iterator creation 
  * function().
  */
-template<typename accessType, typename contextType, 
-	template<typename> typename pointerType, template<typename> typename scopeType>
-struct container<accessType, contextType, listNode<pointerType, scopeType>> : private contextType, 
-	public scopeType<listNode<pointerType, scopeType>>::containerScopeType {
+template<typename accessType, template<typename> typename scopeType>
+struct container<accessType, listNode<scopeType>> :
+	public scopeType<listNode<scopeType>>::containerScopeType {
 	/// The type of the linked list node.
-	typedef listNode<pointerType, scopeType> nodeType;
+	typedef listNode<scopeType> nodeType;
 	
 	/// The type of the container scope.
 	typedef typename scopeType<nodeType>::containerScopeType containerScopeType;
@@ -97,27 +92,27 @@ struct container<accessType, contextType, listNode<pointerType, scopeType>> : pr
 	typedef typename accessType::objectType objectType;
 	
 	/// The forward iterator type definition's forwarding.
-	typedef forwardIterator<accessType, contextType> forwardIteratorType;
+	typedef forwardIterator<accessType> forwardIteratorType;
 	
 	/// The backward iterator type definition's forwarding.
-	typedef backwardIterator<accessType, contextType> backwardIteratorType;
+	typedef backwardIterator<accessType> backwardIteratorType;
 	
 	/// The type definition used for list iteration.
 	typedef objectType value_type;
 private:
 	/// The first and last node in the linked list iterator. Therefore both 
 	/// forward and backward access will be of time complexity O(1).
-	pointerType<nodeType> first, last;
+	nodeType *first, *last;
 	
 	/// Perform removal of a node in the context.
 	void remove(nodeType& node) noexcept {
-		if(first(*this) == &node) first = node.next;
-		if(last(*this) == &node) last = node.previous;
-		node.removeFromList(*this);
+		if(first == &node) first = node.next;
+		if(last == &node) last = node.previous;
+		node.removeFromList();
 	}
 public:
 	/// The initialization of the container.
-	container(contextType&& ctx = {}) noexcept: contextType(ctx) {}
+	container() noexcept: first(nullptr), last(nullptr) {}
 	
 	/// Check whether the container is empty.
 	inline bool empty() const noexcept { return first == nullptr; }
@@ -125,11 +120,11 @@ public:
 	/// The destructor will iteratively reset all internal nodes.
 	~container() noexcept {
 		if(scopeType<nodeType>::containerRemove && !empty()) {
-			nodeType* node = first(*this);
+			nodeType* node = first;
 			while(node != nullptr) {
-				node -> previous(*this) = nullptr;
-				nodeType* nextNode = node -> next(*this);
-				node -> next(*this) = nullptr;
+				node -> previous = nullptr;
+				nodeType* nextNode = node -> next;
+				node -> next = nullptr;
 				node = nextNode;
 			}
 		}
@@ -137,7 +132,7 @@ public:
 	
 	/// Retrieve the forward iterator's starting point via begin().
 	forwardIteratorType begin() noexcept {
-		return forwardIteratorType(*this, first(*this));
+		return forwardIteratorType(*this, first);
 	}
 	
 	/// Retrieve the forward iterator's ending point via end().
@@ -147,7 +142,7 @@ public:
 	
 	/// Retrieve the backward iterator's starting point via rbegin().
 	backwardIteratorType rbegin() noexcept {
-		return backwardIteratorType(*this, last(*this));
+		return backwardIteratorType(*this, last);
 	}
 	
 	/// Retrieve the backward iterator's starting point via rbegin().
@@ -158,13 +153,13 @@ public:
 	/// Retrieve the next node of the linked list node.
 	nodeType* forward(nodeType* node) const noexcept {
 		if(node == nullptr) return nullptr;
-		else return node -> next(*this);
+		else return node -> next;
 	}
 	
 	/// Retrieve the previous node of the linked list node.
 	nodeType* backward(nodeType* node) const noexcept {
 		if(node == nullptr) return nullptr;
-		else return node -> previous(*this);
+		else return node -> previous;
 	}
 	
 	/// Iterate forward from a specified node. For modes that does not 
@@ -213,18 +208,18 @@ private:
 	inline bool commonInsertAfter(nodeType& node, nodeType* current) noexcept {
 		// Insertion happens at the end of the linked list.
 		if(current == nullptr) {
-			if(empty()) first(*this) = last(*this) = &node;
+			if(empty()) first = last = &node;
 			else return true;	// Iterator specific code.
 		}
 		
 		// Insertion happends at the last node of the list.
-		else if(current == last(*this)) {
-			last(*this) -> insertAfter(*this, node);
-			last(*this) = &node;
+		else if(current == last) {
+			last -> insertAfter(node);
+			last = &node;
 		}
 		
 		// The most common insertion at the middle.
-		else current -> insertAfter(*this, node);
+		else current -> insertAfter(node);
 		return false;
 	}
 public:
@@ -236,8 +231,8 @@ public:
 		// Perform common insertion, and do our own work if iterator specific 
 		// insertion is required.
 		if(commonInsertAfter(node, iterator.current)) {
-			last(*this) -> insertAfter(*this, node);
-			last(*this) = &node;
+			last -> insertAfter(node);
+			last = &node;
 		}
 		node.update(this);
 		return true;
@@ -251,8 +246,8 @@ public:
 		// Perform common insertion, and do our own work if iterator specific 
 		// insertion is required.
 		if(commonInsertAfter(node, iterator.current)) {
-			first(*this) -> insertBefore(*this, node);
-			first(*this) = &node;
+			first -> insertBefore(node);
+			first = &node;
 		}
 		node.update(this);
 		return true;
@@ -263,18 +258,18 @@ private:
 	inline bool commonInsertBefore(nodeType& node, nodeType* current) noexcept {
 		// Insertion happens at the end of the linked list.
 		if(current == nullptr) {
-			if(empty()) first(*this) = last(*this) = &node;
+			if(empty()) first = last = &node;
 			else return true;
 		}
 		
 		// Insertion happends at the beginning of the linked list.
-		else if(current == first(*this)) {
-			first(*this) -> insertBefore(*this, node);
-			first(*this) = &node;
+		else if(current == first) {
+			first -> insertBefore(node);
+			first = &node;
 		}
 		
 		// The most common insertion at the middle.
-		else current -> insertBefore(*this, node);
+		else current -> insertBefore(node);
 		return false;
 	}
 public:
@@ -286,8 +281,8 @@ public:
 		// Perform common insertion, and do our own work if iterator specific 
 		// insertion is required.
 		if(commonInsertBefore(node, iterator.current)) {
-			last(*this) -> insertAfter(*this, node);
-			last(*this) = &node;
+			last -> insertAfter(node);
+			last = &node;
 		}
 		node.update(this);
 		return true;
@@ -301,8 +296,8 @@ public:
 		// Perform common insertion, and do our own work if iterator specific 
 		// insertion is required.
 		if(commonInsertBefore(node, iterator.current)) {
-			first(*this) -> insertBefore(*this, node);
-			first(*this) = &node;
+			first -> insertBefore(node);
+			first = &node;
 		}
 		node.update(this);
 		return true;
@@ -338,12 +333,12 @@ public:
 		if(node.containerCompare(this) != -1) return false;
 		
 		// If the list is currently empty, directly set the node.
-		if(empty()) first(*this) = last(*this) = &node;
+		if(empty()) first = last = &node;
 		
 		// Otherwise insert it before the first node.
 		else {
-			first(*this) -> insertBefore(*this, node);
-			first(*this) = &node;
+			first -> insertBefore(node);
+			first = &node;
 		}
 		node.update(this);
 		return true;
@@ -355,12 +350,12 @@ public:
 		if(node.containerCompare(this) != -1) return false;
 		
 		// If the list is currently empty, directly set the node.
-		if(empty()) first(*this) = last(*this) = &node;
+		if(empty()) first = last = &node;
 		
 		// Otherwise insert it before the first node.
 		else {
-			last(*this) -> insertAfter(*this, node);
-			last(*this) = &node;
+			last -> insertAfter(node);
+			last = &node;
 		}
 		node.update(this);
 		return true;
@@ -374,10 +369,10 @@ public:
 		
 		// Otherwise insert it before the first node.
 		else {
-			nodeType* removing = first(*this);
+			nodeType* removing = first;
 			first = removing -> next;
 			if(first == nullptr) last = nullptr;
-			removing -> removeFromList(*this);
+			removing -> removeFromList();
 			removing -> update(nullptr);
 			return &accessType::objectOf(*removing);
 		}
@@ -390,10 +385,10 @@ public:
 		
 		// Otherwise insert it before the first node.
 		else {
-			nodeType* removing = last(*this);
+			nodeType* removing = last;
 			last = removing -> previous;
 			if(last == nullptr) first = nullptr;
-			removing -> removeFromList(*this);
+			removing -> removeFromList();
 			removing -> update(nullptr);
 			return &accessType::objectOf(*removing);
 		}
