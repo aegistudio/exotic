@@ -21,12 +21,12 @@ namespace exotic {
  * The fields and operations are set private to protect the structure, however users
  * could default-construct, destruct, move-construct and move-assign a node.
  */
-template<typename cscopeType = exotic::scope::decoupled> class linkedListNode {
+template<typename cscopeType = exotic::scope::decoupled> class listNode {
 	/// Forwarding the scope type definition (so that containers will get their field type).
 	typedef cscopeType scopeType;
 	
 	// The previous and next linked list node.
-	linkedListNode *previous, *next;
+	listNode *previous, *next;
 	
 	/// Unlink the linked list from the current container.
 	void unlink() noexcept {
@@ -36,13 +36,13 @@ template<typename cscopeType = exotic::scope::decoupled> class linkedListNode {
 	};
 	
 	/// Insert the node after some node in the container.
-	void insertAfter(linkedListNode& node) noexcept {
+	void insertAfter(listNode& node) noexcept {
 		previous = &node; next = node.next;
 		previous -> next = next -> previous = this;
 	}
 	
 	/// Insert the node before some node in the container.
-	void insertBefore(linkedListNode& node) noexcept {
+	void insertBefore(listNode& node) noexcept {
 		next = &node; previous = node.previous;
 		previous -> next = next -> previous = this;
 	}
@@ -51,21 +51,21 @@ template<typename cscopeType = exotic::scope::decoupled> class linkedListNode {
 	bool isOrphanNode() const noexcept { return previous == nullptr && next == nullptr; }
 	
 	/// Only the linked list container could have access to the internal field and methods.
-	template<typename nodeType> friend class linkedList;
+	template<typename nodeType> friend class list;
 public:
 	/// The default constructor for the linked list.
-	linkedListNode() noexcept: previous(nullptr), next(nullptr) {}
+	listNode() noexcept: previous(nullptr), next(nullptr) {}
 	
 	/// The destructor for the linked list.
-	~linkedListNode() noexcept {
+	~listNode() noexcept {
 		if(scopeType::destroyNode) unlink();
 	}
 	
 	/// The swap method for the linked list, inter-changes the relation of the nodes.
-	void swap(linkedListNode& b) noexcept {
+	void swap(listNode& b) noexcept {
 		// Retrieve the previous and next node first.
-		linkedListNode *ap = previous, *an = next;
-		linkedListNode *bp = b.previous, *bn = b.next;
+		listNode *ap = previous, *an = next;
+		listNode *bp = b.previous, *bn = b.next;
 		
 		// Swap external the relations.
 		if(ap != nullptr) ap -> next = &b;
@@ -79,19 +79,19 @@ public:
 	}
 	
 	/// Make the move assignment operator become the swapping operation.
-	linkedListNode& operator=(linkedListNode&& b) noexcept {
+	listNode& operator=(listNode&& b) noexcept {
 		b.swap(*this);
 		return *this;
 	}
 	
 	/// Make the move constructor become the swap operation.
-	linkedListNode(linkedListNode&& b) noexcept: previous(nullptr), next(nullptr) {
+	listNode(listNode&& b) noexcept: previous(nullptr), next(nullptr) {
 		b.swap(*this);
 	}
 	
 	// The node can never be copy-assigned or copy-constructed.
-	linkedListNode(const linkedListNode&) = delete;
-	linkedListNode& operator=(const linkedListNode&) = delete;
+	listNode(const listNode&) = delete;
+	listNode& operator=(const listNode&) = delete;
 };
 
 /**
@@ -105,7 +105,7 @@ public:
  * undefined if iterate from a node which is not inside the container. Maybe looping 
  * infinitely, or cause segmentation fault when attempting to write.
  */
-template<typename idType> struct linkedList {
+template<typename idType> struct list {
 	// Forward the definition of the internal node type.
 	typedef typename idType::nodeType nodeType;
 	
@@ -119,26 +119,26 @@ private:
 	typedef typename nodeType::scopeType scopeType;
 	
 	// Ensure that we are operating on a linked list node.
-	static_assert(std::is_same<linkedListNode<scopeType>, nodeType>::value,
+	static_assert(std::is_same<listNode<scopeType>, nodeType>::value,
 		"Only a linked list node field could be specified to link list.");
 		
 	// The guard node storing the node relations.
-	linkedListNode<scopeType> guard;
+	listNode<scopeType> guard;
 public:
 	// Defaultly construct a container for linked list.
-	linkedList() noexcept: guard() {
+	list() noexcept: guard() {
 		// Make a circular linked reference.
 		guard.previous = guard.next = &guard;
 	}
 	
 	// Defaultly destruct the linked list.
-	~linkedList() noexcept {
+	~list() noexcept {
 		if(!scopeType::destroyContainer) return;
 		
 		// Simply set all internal node to orphan nodes.
-		linkedListNode<scopeType>* node = guard.next;
+		listNode<scopeType>* node = guard.next;
 		while(node != &guard) {
-			linkedListNode<scopeType>* next = node -> next;
+			listNode<scopeType>* next = node -> next;
 			node -> previous = node -> next = nullptr;
 			node = next;
 		}
@@ -148,24 +148,24 @@ public:
 	}
 	
 	/// Forwarding the mutable forward iterator's definition.
-	typedef class forwardIterator<linkedList, void, true> forwardIteratorType;
+	typedef class forwardIterator<list, void, true> forwardIteratorType;
 	
 	/// Forwarding the mutable backward iterator's definition.
-	typedef class backwardIterator<linkedList, void, true> backwardIteratorType;
+	typedef class backwardIterator<list, void, true> backwardIteratorType;
 	
 	/// Forwarding the const forward iterator's definition.
-	typedef class forwardIterator<linkedList, void, false> constForwardIteratorType;
+	typedef class forwardIterator<list, void, false> constForwardIteratorType;
 	
 	/// Forwarding the const backward iterator's definition.
-	typedef class backwardIterator<linkedList, void, false> constBackwardIteratorType;
+	typedef class backwardIterator<list, void, false> constBackwardIteratorType;
 private:
 	/// Helper function for retrieving the begin node.
-	linkedListNode<scopeType>* beginForward() const noexcept {
+	listNode<scopeType>* beginForward() const noexcept {
 		return (guard.next == &guard)? nullptr : guard.next;
 	}
 
 	/// Helper function for retrieving the backward begin node.
-	linkedListNode<scopeType>* beginBackward() const noexcept {
+	listNode<scopeType>* beginBackward() const noexcept {
 		return (guard.previous == &guard)? nullptr : guard.previous;
 	}
 	
@@ -262,16 +262,16 @@ private:
 	}
 	
 	/// Perform equality comparison about the nodes.
-	static bool equals(	const linkedList& lit, const nodeType* l, 
-						const linkedList& rit, const nodeType* r) noexcept {
+	static bool equals(	const list& lit, const nodeType* l, 
+						const list& rit, const nodeType* r) noexcept {
 		if(l == nullptr && r == nullptr) return true;
 		if(&lit != &rit) return false;
 		return l == r;
 	}
 	
 	/// Perform inequality comparison about the nodes.
-	static bool notEquals(	const linkedList& lit, const nodeType* l, 
-							const linkedList& rit, const nodeType* r) noexcept {
+	static bool notEquals(	const list& lit, const nodeType* l, 
+							const list& rit, const nodeType* r) noexcept {
 		return !equals(lit, l, rit, r);
 	}
 	
