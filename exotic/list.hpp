@@ -243,9 +243,11 @@ private:
 	friend forwardIteratorType;
 	friend backwardIteratorType;
 	friend constForwardIteratorType;
+	friend constBackwardIteratorType;
 	friend typename forwardIteratorType::baseType;
 	friend typename backwardIteratorType::baseType;
 	friend typename constForwardIteratorType::baseType;
+	friend typename constBackwardIteratorType::baseType;
 	
 	/// Perform forwarding about the iterators.
 	void iterateForward(nodeType*& node) const noexcept {
