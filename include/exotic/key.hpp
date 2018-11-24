@@ -44,7 +44,7 @@ private:
 	/// Just store the key type here.
 	keyType key;
 	
-	/// The helper template for broadcasting update. The nodeType must befriend this key type
+	/// The helper template for broadcasting update. The nodeType must befriend `exotic::keyNode`
 	/// while providing private `template<keyIdType> update()`, to avoid external modification.
 	template<typename objectType, typename nodeType> struct executorUpdate { 
 		static void execute(objectType* obj, nodeType* node, 
@@ -53,7 +53,7 @@ private:
 		}
 	};
 	
-	/// The helper template for performing kvswapping. The nodeType must befriend this key 
+	/// The helper template for performing kvswapping. The nodeType must befriend `exotic::keyNode` 
 	/// type while providing private `valueSwap()`, to avoid external modification.
 	template<typename objectType, typename nodeType> struct executorKvswap {
 		static void execute(objectType* aobj, nodeType* anode,
