@@ -88,34 +88,34 @@ struct typedNodeList<objectType, headNodeType, tailNodeTypes...> {
 	typedef typedNodeList<objectType, tailNodeTypes...> next;
 	
 	/// Perform operations on the node list.
-	template<template<typename, typename> typename executorType, typename... args>
+	template<template<typename, typename, typename> typename executorType, typename... args>
 	static inline void execute(objectType* object, args&&... a) noexcept {
-		executorType<objectType, typename headNodeType::nodeType>::execute(
+		executorType<objectType, headNodeType, typename headNodeType::nodeType>::execute(
 			object, headNodeType::node(object), std::forward<args>(a)...);
 		next::template execute<executorType, args...>(object, std::forward<args>(a)...);
 	}
 	
 	/// Perform operation on the node list (const version). We have to write twice 
 	/// otherwise the compiler won't be able to judge which version to call.
-	template<template<typename, typename> typename executorType, typename... args>
+	template<template<typename, typename, typename> typename executorType, typename... args>
 	static inline void execute(const objectType* object, args&&... a) noexcept {
-		executorType<objectType, typename headNodeType::nodeType>::execute(
+		executorType<objectType, headNodeType, typename headNodeType::nodeType>::execute(
 			object, headNodeType::node(object), std::forward<args>(a)...);
 		next::template execute<executorType, args...>(object, std::forward<args>(a)...);
 	}
 	
 	/// Perform dual-object operations on the node list.
-	template<template<typename, typename> typename executorType, typename... args>
+	template<template<typename, typename, typename> typename executorType, typename... args>
 	static inline void execute(objectType* aobj, objectType* bobj, args&&... a) noexcept {
-		executorType<objectType, typename headNodeType::nodeType>::execute(
+		executorType<objectType, headNodeType, typename headNodeType::nodeType>::execute(
 			aobj, headNodeType::node(aobj), bobj, headNodeType::node(bobj), std::forward<args>(a)...);
 		next::template execute<executorType, args...>(aobj, bobj, std::forward<args>(a)...);
 	}
 	
 	/// Perform dual-object operation on the node list (const version).
-	template<template<typename, typename> typename executorType, typename... args>
+	template<template<typename, typename, typename> typename executorType, typename... args>
 	static inline void execute(const objectType* aobj, const objectType* bobj, args&&... a) noexcept {
-		executorType<objectType, typename headNodeType::nodeType>::execute(
+		executorType<objectType, headNodeType, typename headNodeType::nodeType>::execute(
 			aobj, headNodeType::node(aobj), bobj, headNodeType::node(bobj), std::forward<args>(a)...);
 		next::template execute<executorType, args...>(aobj, bobj, std::forward<args>(a)...);
 	}
@@ -124,19 +124,19 @@ struct typedNodeList<objectType, headNodeType, tailNodeTypes...> {
 /// The end of the typed node list.
 template<typename objectType> struct typedNodeList<objectType> {
 	/// The end of the perform operation.
-	template<template<typename, typename> typename executorType, typename... args>
+	template<template<typename, typename, typename> typename executorType, typename... args>
 	static inline void execute(objectType* object, args&&...) noexcept {}
 	
 	/// The end of the perform operation (const version).
-	template<template<typename, typename> typename executorType, typename... args>
+	template<template<typename, typename, typename> typename executorType, typename... args>
 	static inline void execute(const objectType* object, args&&...) noexcept {}
 	
 	/// The end of the dual-object perform operation.
-	template<template<typename, typename> typename executorType, typename... args>
+	template<template<typename, typename, typename> typename executorType, typename... args>
 	static inline void execute(objectType*, objectType*, args&&...) noexcept {}
 	
 	/// The end of the dual-object perform operation (const version).
-	template<template<typename, typename> typename executorType, typename... args>
+	template<template<typename, typename, typename> typename executorType, typename... args>
 	static inline void execute(const objectType*, const objectType*, args&&...) noexcept {}
 };
 
@@ -146,28 +146,28 @@ template<typename headNodeType, typename... tailNodeTypes> struct nodeList {
 	typedef typename headNodeType::objectType objectType;
 	
 	/// Perform operations on the node list.
-	template<template<typename, typename> typename executorType, typename... args>
+	template<template<typename, typename, typename> typename executorType, typename... args>
 	static inline void execute(objectType* object, args... a) noexcept {
 		typedNodeList<objectType, headNodeType, tailNodeTypes...>
 			::template execute<executorType, args...>(object, std::forward<args>(a)...);
 	}
 	
 	/// Perform operation on the node list (const version).
-	template<template<typename, typename> typename executorType, typename... args>
+	template<template<typename, typename, typename> typename executorType, typename... args>
 	static inline void execute(const objectType* object, args... a) noexcept {
 		typedNodeList<objectType, headNodeType, tailNodeTypes...>
 			::template execute<executorType, args...>(object, std::forward<args>(a)...);
 	}
 	
 	/// Perform dual-object operations on the node list.
-	template<template<typename, typename> typename executorType, typename... args>
+	template<template<typename, typename, typename> typename executorType, typename... args>
 	static inline void execute(objectType* aobj, objectType* bobj, args... a) noexcept {
 		typedNodeList<objectType, headNodeType, tailNodeTypes...>
 			::template execute<executorType, args...>(aobj, bobj, std::forward<args>(a)...);
 	}
 	
 	/// Perform dual-object operation on the node list (const version).
-	template<template<typename, typename> typename executorType, typename... args>
+	template<template<typename, typename, typename> typename executorType, typename... args>
 	static inline void execute(const objectType* aobj, const objectType* bobj, args... a) noexcept {
 		typedNodeList<objectType, headNodeType, tailNodeTypes...>
 			::template execute<executorType, args...>(aobj, bobj, std::forward<args>(a)...);

@@ -11,8 +11,8 @@
  * the object serves as the value and the nodes inside the object fabricates the key-value
  * relcation.
  *
- * The value nodes should have `template<keyIdType> update()` and `valueSwap()` defined 
- * in order to work with the key node.
+ * The value nodes should have `template<keyIdType, valueIdType> update()` and `valueSwap()` 
+ * defined in order to work with the key node.
  */
 #include <type_traits>
 #include <utility>
@@ -44,19 +44,20 @@ private:
 	/// Just store the key type here.
 	keyType key;
 	
-	/// The helper template for broadcasting update. The nodeType must befriend `exotic::keyNode`
-	/// while providing private `template<keyIdType> update()`, to avoid external modification.
-	template<typename objectType, typename nodeType> struct executorUpdate { 
+	/// The helper template for broadcasting update. The nodeType must befriend 
+	/// `exotic::keyNode` while providing private `template<keyIdType, valueIdType> update()`, 
+	/// to avoid external modification.
+	template<typename objectType, typename nodeIdType, typename nodeType> struct executorUpdate { 
 		static void execute(objectType* obj, nodeType* node, 
 			const keyType& paramOldKey, const keyType& paramNewKey) noexcept {
-			node -> nodeType::template update<keyIdType>(paramOldKey, paramNewKey);
+			node -> nodeType::template update<keyIdType, nodeIdType>(paramOldKey, paramNewKey);
 		}
 	};
 	
-	/// The helper template for performing kvswapping. The nodeType must befriend `exotic::keyNode` 
-	/// type while providing private `valueSwap()`, to avoid external modification.
-	template<typename objectType, typename nodeType> struct executorKvswap {
-		static void execute(objectType* aobj, nodeType* anode,
+	/// The helper template for performing kvswapping. The nodeType must befriend 
+	/// `exotic::keyNode` type while providing private `valueSwap()`, to avoid external modification.
+	template<typename objectType, typename nodeIdType, typename nodeType> struct executorKvswap {
+		static void execute(objectType* aobj, nodeType* anode, 
 			objectType* bobj, nodeType* bnode) noexcept {
 			(*anode).valueSwap(*bnode);	
 		}
