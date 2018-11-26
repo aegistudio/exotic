@@ -177,64 +177,64 @@ private:
 public:
 	/// Create the forward iterator from the begining.
 	forwardIteratorType begin() noexcept {
-		return forwardIteratorType(*this, beginForward());
+		return forwardIteratorType(this, beginForward());
 	}
 	
 	/// Creates the end iterator for forward iterating.
 	forwardIteratorType end() noexcept {
-		return forwardIteratorType(*this, nullptr);
+		return forwardIteratorType(this, nullptr);
 	}
 
 	/// Create the forward iterator right from a node. If the node is orphan, the 
 	/// end iterator will be returned.
 	forwardIteratorType from(objectType& object) noexcept {
-		return forwardIteratorType(*this, nodePointerFrom(object));
+		return forwardIteratorType(this, nodePointerFrom(object));
 	}
 	
 	/// Create the const forward iterator from the begining.
 	constForwardIteratorType cbegin() noexcept {
-		return constForwardIteratorType(*this, beginForward());
+		return constForwardIteratorType(this, beginForward());
 	}
 	
 	/// Creates the end iterator for forward iterating.
 	constForwardIteratorType cend() noexcept {
-		return constForwardIteratorType(*this, nullptr);
+		return constForwardIteratorType(this, nullptr);
 	}
 	
 	/// Create const the forward iterator right from a node.
 	constForwardIteratorType cfrom(objectType& object) noexcept {
-		return constForwardIteratorType(*this, nodePointerFrom(object));
+		return constForwardIteratorType(this, nodePointerFrom(object));
 	}
 	
 	/// Create the backward iterator from reverse begining.
 	backwardIteratorType rbegin() noexcept {
-		return backwardIteratorType(*this, beginBackward());
+		return backwardIteratorType(this, beginBackward());
 	}
 	
 	/// Create the end iterator for backward iterating.
 	backwardIteratorType rend() noexcept {
-		return backwardIteratorType(*this, nullptr);
+		return backwardIteratorType(this, nullptr);
 	}
 	
 	/// Create the backward iterator right from a node. If the node is orphan, the 
 	/// end iterator will be returned.
 	backwardIteratorType rfrom(objectType& object) noexcept {
-		return backwardIteratorType(*this, nodePointerFrom(object));
+		return backwardIteratorType(this, nodePointerFrom(object));
 	}
 	
 	/// Create the const backward iterator from reverse begining.
 	constBackwardIteratorType crbegin() noexcept {
-		return constBackwardIteratorType(*this, beginBackward());
+		return constBackwardIteratorType(this, beginBackward());
 	}
 	
 	/// Create the const end iterator for backward iterating.
 	constBackwardIteratorType crend() noexcept {
-		return constBackwardIteratorType(*this, nullptr);
+		return constBackwardIteratorType(this, nullptr);
 	}
 	
 	/// Create the const backward iterator right from a node.
 	constBackwardIteratorType crfrom(objectType& object) noexcept {
-		return constBackwardIteratorType(*this, nodePointerFrom(object));
+		return constBackwardIteratorType(this, nodePointerFrom(object));
 	}
 	
 	// The iterator specific functions, which must be protected.
@@ -321,44 +321,48 @@ public:
 		return idType::object(node);
 	}
 	
-	/// Insert a node right before the forward iterator, returning the insertion status.
-	bool insert(forwardIteratorType iterator, objectType& object) noexcept {
+	/// Insert a node right before the forward iterator. If insertion is succeed, the 
+	/// iterator to the newly inserted element will be returned, otherwise end() will
+	/// be returned.
+	forwardIteratorType insert(forwardIteratorType iterator, objectType& object) noexcept {
 		nodeType* node = idType::node(&object);
-		if(!node->isOrphanNode()) return false;
+		if(!node->isOrphanNode()) return end();
 		
 		nodeType* next = iterator.current;
 		if(next == nullptr) next = &sentinel;
 		node -> insertBefore(*next);
-		return true;
+		return forwardIteratorType(this, idType::node(&object));
 	}
 	
-	/// Insert a node right after the backward iterator, returning the insertion status.
-	bool insert(backwardIteratorType iterator, objectType& object) noexcept {
+	/// Insert a node right after the backward iterator, if insertion is succeed, the
+	/// iterator to the newly inserted element will be returned, otherwise end() will
+	/// be returned.
+	backwardIteratorType insert(backwardIteratorType iterator, objectType& object) noexcept {
 		nodeType* node = idType::node(&object);
-		if(!node->isOrphanNode()) return false;
+		if(!node->isOrphanNode()) return rend();
 		
 		nodeType* previous = iterator.current;
 		if(previous == nullptr) previous = &sentinel;
 		node -> insertAfter(*previous);
-		return true;
+		return backwardIteratorType(this, idType::node(&object));
 	}
 	
 	/// Remove the node right at the forward iterator's cursor, returning the next node.
 	forwardIteratorType erase(forwardIteratorType iterator) noexcept {
 		nodeType* node = iterator.current;
-		if(node == nullptr) return forwardIteratorType(*this, node);
+		if(node == nullptr) return forwardIteratorType(this, node);
 		nodeType* next = node -> next;
 		node -> unlink();
-		return forwardIteratorType(*this, next == &sentinel? nullptr : next);
+		return forwardIteratorType(this, next == &sentinel? nullptr : next);
 	}
 	
 	/// Remove the node right at the backward iterator's cursor, returning the previous node.
 	backwardIteratorType erase(backwardIteratorType iterator) noexcept {
 		nodeType* node = iterator.current;
-		if(node == nullptr) return backwardIteratorType(*this, node);
+		if(node == nullptr) return backwardIteratorType(this, node);
 		nodeType* previous = node -> previous;
 		node -> unlink();
-		return backwardIteratorType(*this, previous == &sentinel? nullptr : previous);
+		return backwardIteratorType(this, previous == &sentinel? nullptr : previous);
 	}
 };
 

@@ -55,9 +55,9 @@ struct iteratorBase {
 	/// Which object contains the node, linked by the nodeid<> template.
 	typedef typename iterableType::objectType objectType;
 protected:
-	/// The constant reference to the iterable. As the iteration operations should always not 
+	/// The constant pointer to the iterable. As the iteration operations should always not 
 	/// mutate the iterable / container.
-	const iterableType& iterable;
+	const iterableType* iterable;
 
 	/// The current userdata.
 	userdataType userdata;
@@ -69,39 +69,63 @@ protected:
 	friend iterableType;
 	
 	/// The non-trivial constructor, which is protected.
-	iteratorBase(const iterableType& iterable, userdataType&& userdata, nodeType* current) noexcept: 
+	iteratorBase(const iterableType* iterable, userdataType&& userdata, nodeType* current) noexcept: 
 		iterable(iterable), userdata(userdata), current(current) {}
+	
+	/// The copy constructor.
+	iteratorBase(const iteratorBase& it) noexcept: 
+		iterable(it.iterable), userdata(it.userdata), current(it.current) {}
+	
+	/// The move constructor.
+	iteratorBase(iteratorBase&& it) noexcept: 
+		iterable(it.iterable), userdata(std::forward<userdataType>(it.userdata)), current(it.current) {}
+	
+	/// The copy assignment operator.
+	iteratorBase& operator=(const iteratorBase& it) noexcept {
+		iterable = it.iterable;
+		userdata = std::forward<userdataType>(it);
+		current = it.current;
+		return *this;
+	}
+	
+	/// The move assignment operator.
+	iteratorBase& operator=(iteratorBase&& it) noexcept {
+		iterable = it.iterable;
+		userdata = std::forward<userdataType>(it);
+		current = it.current;
+		return *this;
+	}
 public:
 	/// Compare whether two iterators point to the same position, or pointing to the same pseudo 
 	/// position. (Mostly, we would always expect the end of an iterable and an orphan node to be 
 	/// equal at the aspect of iteration, so that it presents that the orphan node points to the 
 	/// end of the container).
 	bool operator==(const iteratorBase& rhs) const noexcept {
-		return iterableType::equals(iterable, userdata, current, rhs.iterable, rhs.userdata, rhs.current);
+		return iterableType::equals(*iterable, userdata, current, *rhs.iterable, rhs.userdata, rhs.current);
 	}
 	
 	/// Compare whether two iterators point to different positions or pseudo positions.
 	bool operator!=(const iteratorBase& rhs) const noexcept {
-		return iterableType::notEquals(iterable, userdata, current, rhs.iterable, rhs.userdata, rhs.current);
+		return iterableType::notEquals(*iterable, userdata, current, *rhs.iterable, rhs.userdata, rhs.current);
 	}
 	
 	/// Dereferencing the constant object. The nullptr could be returned in order to cause a 
 	/// segmentation fault, indicating that the user uses the containers incorrectly. (And the 
 	/// template provides no means of exception, so this would be the only way to dereference).
-	const objectType& operator*() const noexcept {	return *iterable.dereference(userdata, current); }
+	const objectType& operator*() const noexcept {	return *iterable -> dereference(userdata, current); }
 	
 	/// Pointer-style dereferencing the constant object.
-	const objectType* operator->() const noexcept {	return iterable.dereference(userdata, current);	}
+	const objectType* operator->() const noexcept {	return iterable -> dereference(userdata, current);	}
 	
 	/// Dereferencing the mutable object.
 	template<bool forwardedMutableFlag = mutableFlag>
 	typename std::enable_if<forwardedMutableFlag, objectType&>::type operator*() noexcept 
-		{	return *const_cast<objectType*>(iterable.dereference(userdata, current)); }
+		{	return *const_cast<objectType*>(iterable -> dereference(userdata, current)); }
 	
 	/// Pointer-style dereferencing the mutable object.
 	template<bool forwardedMutableFlag = mutableFlag>
 	typename std::enable_if<forwardedMutableFlag, objectType*>::type operator->() noexcept 
-		{	return const_cast<objectType*>(iterable.dereference(userdata, current)); }
+		{	return const_cast<objectType*>(iterable -> dereference(userdata, current)); }
 };
 
 /// @brief The common behavior of the iterators, with the userdata type to be void. For this 
@@ -116,7 +140,7 @@ struct iteratorBase<iterableType, placeholderType, void, mutableFlag> {
 protected:
 	/// The constant reference to the iterable. As the iteration operations should always not 
 	/// mutate the iterable / container.
-	const iterableType& iterable;
+	const iterableType* iterable;
 	
 	/// The current iterating node.
 	nodeType* current;
@@ -125,34 +149,54 @@ protected:
 	friend iterableType;
 	
 	/// The non-trivial constructor, which is protected, and the userdata need not to be provided.
-	iteratorBase(const iterableType& iterable, nodeType* current) noexcept: 
+	iteratorBase(const iterableType* iterable, nodeType* current) noexcept: 
 		iterable(iterable), current(current) {}
+		
+	/// The copy constructor.
+	iteratorBase(const iteratorBase& it) noexcept: iterable(it.iterable), current(it.current) {}
+	
+	/// The move constructor.
+	iteratorBase(iteratorBase&& it) noexcept: iterable(it.iterable), current(it.current) {}
+	
+	/// The copy assignment operator.
+	iteratorBase& operator=(const iteratorBase& it) noexcept {
+		iterable = it.iterable;
+		current = it.current;
+		return *this;
+	}
+	
+	/// The move assignment operator.
+	iteratorBase& operator=(iteratorBase&& it) noexcept {
+		iterable = it.iterable;
+		current = it.current;
+		return *this;
+	}
 public:
 	/// Compare whether two iterators point to the same position or pseudo position.
-	bool operator==(const iteratorBase& rhs) noexcept {	
-		return iterableType::equals(iterable, current, rhs.iterable, rhs.current);
+	bool operator==(const iteratorBase& rhs) const noexcept {	
+		return iterableType::equals(*iterable, current, *rhs.iterable, rhs.current);
 	}
 	
 	/// Compare whether two iterators point to different positions or pseudo positions.
-	bool operator!=(const iteratorBase& rhs) noexcept {
-		return iterableType::notEquals(iterable, current, rhs.iterable, rhs.current);
+	bool operator!=(const iteratorBase& rhs) const noexcept {
+		return iterableType::notEquals(*iterable, current, *rhs.iterable, rhs.current);
 	}
 	
 	/// Dereferencing the constant object.
-	const objectType& operator*() const noexcept {	return *iterable.dereference(current);	}
+	const objectType& operator*() const noexcept {	return *iterable -> dereference(current);	}
 	
 	/// Pointer-style dereferencing the constant object.
-	const objectType* operator->() const noexcept {	return iterable.dereference(current);	}
+	const objectType* operator->() const noexcept {	return iterable -> dereference(current);	}
 	
 	/// Dereferencing the mutable object.
 	template<bool forwardedMutableFlag = mutableFlag>
 	typename std::enable_if<forwardedMutableFlag, objectType&>::type operator*() noexcept 
-		{	return *const_cast<objectType*>(iterable.dereference(current));	}
+		{	return *const_cast<objectType*>(iterable -> dereference(current));	}
 		
 	/// Pointer-style dereferencing the mutable object.
 	template<bool forwardedMutableFlag = mutableFlag>
 	typename std::enable_if<forwardedMutableFlag, objectType*>::type operator->() noexcept 
-		{	return const_cast<objectType*>(iterable.dereference(current));	}
+		{	return const_cast<objectType*>(iterable -> dereference(current));	}
 };
 
 // Placeholder for forward iterator.
@@ -173,12 +217,30 @@ protected:
 	friend iterableType;
 	
 	// The non-trivial constructor, which is protected.
-	forwardIterator(const iterableType& iterable, userdataType&& userdata, nodeType* current) noexcept:
+	forwardIterator(const iterableType* iterable, userdataType&& userdata, nodeType* current) noexcept:
 			baseType(iterable, userdata, current) {}
 public:
+	// The copy constructor.
+	forwardIterator(const forwardIterator& fi): baseType(fi) {}
+	
+	// The move constructor.
+	forwardIterator(forwardIterator&& fi): baseType(fi) {}
+	
 	// Move forward in the iterator.
 	forwardIterator& operator++() noexcept {
-		baseType::iterable.iterateForward(baseType::userdata, baseType::current);
+		baseType::iterable -> iterateForward(baseType::userdata, baseType::current);
+		return *this;
+	}
+	
+	// Perform copy assignment.
+	forwardIterator& operator=(const forwardIterator& fi) noexcept {
+		baseType::operator=(fi);
+		return *this;
+	}
+	
+	// Perform move assignment.
+	forwardIterator& operator=(forwardIterator&& fi) noexcept {
+		baseType::operator=(fi);
 		return *this;
 	}
 };
@@ -197,11 +259,29 @@ protected:
 	friend iterableType;
 	
 	// The non-trivial constructor, which is protected, and the userdata is omitted.
-	forwardIterator(const iterableType& iterable, nodeType* current) noexcept: baseType(iterable, current) {}
+	forwardIterator(const iterableType* iterable, nodeType* current) noexcept: baseType(iterable, current) {}
 public:
+	// The copy constructor.
+	forwardIterator(const forwardIterator& fi): baseType(fi) {}
+	
+	// The move constructor.
+	forwardIterator(forwardIterator&& fi): baseType(fi) {}
+	
 	// Move forward in the iterator. The iterable needs not to accept in the userdata.
 	forwardIterator& operator++() noexcept {
-		baseType::iterable.iterateForward(baseType::current);
+		baseType::iterable -> iterateForward(baseType::current);
+		return *this;
+	}
+	
+	// Perform copy assignment.
+	forwardIterator& operator=(const forwardIterator& fi) noexcept {
+		baseType::operator=(fi);
+		return *this;
+	}
+	
+	// Perform move assignment.
+	forwardIterator& operator=(forwardIterator&& fi) noexcept {
+		baseType::operator=(fi);
 		return *this;
 	}
 };
@@ -224,12 +304,30 @@ protected:
 	friend iterableType;
 	
 	// The non-trivial constructor, which is protected.
-	backwardIterator(const iterableType& iterable, userdataType&& userdata, nodeType* current) noexcept:
-			baseType(iterable, userdata, current) {}
+	backwardIterator(const iterableType* iterable, userdataType&& userdata, nodeType* current) noexcept:
+			baseType(iterable, userdata, current) {}	
 public:
+	// The copy constructor.
+	backwardIterator(const backwardIterator& fi): baseType(fi) {}
+	
+	// The move constructor.
+	backwardIterator(backwardIterator&& fi): baseType(fi) {}
+	
 	// Move backward in the iterator.
 	backwardIterator& operator++() noexcept {
-		baseType::iterable.iterateBackward(baseType::userdata, baseType::current);
+		baseType::iterable -> iterateBackward(baseType::userdata, baseType::current);
+		return *this;
+	}
+	
+	// Perform move assignment.
+	backwardIterator& operator=(const backwardIterator& fi) noexcept {
+		baseType::operator=(fi);
+		return *this;
+	}
+	
+	// Perform move assignment.
+	backwardIterator& operator=(backwardIterator&& fi) noexcept {
+		baseType::operator=(fi);
 		return *this;
 	}
 };
@@ -248,11 +346,29 @@ protected:
 	friend iterableType;
 	
 	// The non-trivial constructor, which is protected.
-	backwardIterator(const iterableType& iterable, nodeType* current) noexcept: baseType(iterable, current) {}
+	backwardIterator(const iterableType* iterable, nodeType* current) noexcept: baseType(iterable, current) {}
 public:
+	// The copy constructor.
+	backwardIterator(const backwardIterator& fi): baseType(fi) {}
+	
+	// The move constructor.
+	backwardIterator(backwardIterator&& fi): baseType(fi) {}
+	
 	// Move backward in the iterator. The iterable needs not to accept in the userdata.
 	backwardIterator& operator++() noexcept {
-		baseType::iterable.iterateBackward(baseType::current);
+		baseType::iterable -> iterateBackward(baseType::current);
+		return *this;
+	}
+	
+	// Perform move assignment.
+	backwardIterator& operator=(const backwardIterator& fi) noexcept {
+		baseType::operator=(fi);
+		return *this;
+	}
+	
+	// Perform move assignment.
+	backwardIterator& operator=(backwardIterator&& fi) noexcept {
+		baseType::operator=(fi);
 		return *this;
 	}
 };

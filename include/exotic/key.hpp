@@ -76,7 +76,7 @@ public:
 		
 		// Broadcast update on the key.
 		nodeListType::template execute<executorUpdate, 
-			const keyType&, const keyType&>(keyIdType::object(this), oldKey, newKey);
+			keyType, keyType>(keyIdType::object(this), oldKey, newKey);
 		
 		// Finally apply the assignment.
 		key = std::forward<keyType>(nkey);

@@ -12,6 +12,8 @@ project(exotic)
 # Ensure the project uses (at least) c++11.
 set(CMAKE_CXX_STANDARD 11)
 
+# The options that is configurable in this module.
+option(EXOTIC_RUNTEST "Build and run tests to of exotic (GoogleTest required)." ON)
 
 # The include directory of the project.
 include_directories(include)
@@ -33,3 +35,31 @@ install(FILES
 	DESTINATION "include/exotic")
 install(TARGETS exotic EXPORT exoticCmakeExport)
 install(EXPORT exoticCmakeExport DESTINATION "lib/cmake")
+
+# Configure the tests, only if EXOTIC_RUNTEST is enabled.
+if(${EXOTIC_RUNTEST})
+message("EXOTIC_RUNTEST is enabled, configuring tests while building.")
+
+# Enable CMake testings first.
+include(CTest)
+enable_testing()
+
+# Ensure that GoogleTest is configured properly on testing machine.
+find_package(GTest REQUIRED)
+if(NOT ${GTEST_FOUND})
+message(SEND_ERROR "EXOTIC_RUNTEST is enabled, but GoogleTest is not configured.")
+endif()
+
+# Defines the adding test macro for single file test, as a helper.
+macro(exotic_add_test EXOTIC_TESTNAME)
+add_executable("${EXOTIC_TESTNAME}.test" "${CMAKE_CURRENT_SOURCE_DIR}/${EXOTIC_TESTNAME}.cpp")
+target_link_libraries("${EXOTIC_TESTNAME}.test" GTest::GTest GTest::Main)
+add_test("exotic.${EXOTIC_TESTNAME}" "${EXOTIC_TESTNAME}.test")
+endmacro(exotic_add_test)
+
+# Add a 'check' target to verbosely output the google test result.
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --verbose --output-on-failure)
+
+# Also include and build the test cases under the test directory.
+add_subdirectory(test)
+endif()
