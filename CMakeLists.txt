@@ -14,6 +14,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 # The options that is configurable in this module.
 option(EXOTIC_RUNTEST "Build and run tests to of exotic (GoogleTest required)." ON)
+option(EXOTIC_DOXYGEN "Generate documents for exotic (Doxygen required)." ON)
 
 # The include directory of the project.
 include_directories(include)
@@ -62,4 +63,26 @@ add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --verbose --output-on-fai
 
 # Also include and build the test cases under the test directory.
 add_subdirectory(test)
+endif()
+
+# Configure the docs, only if EXOTIC_DOXYGEN is enabled.
+if(${EXOTIC_DOXYGEN})
+message("EXOTIC_DOXYGEN is enabled, generate documents while building.")
+
+# Ensure that Doxygen is configured properly on building machine.
+find_package(Doxygen REQUIRED)
+if(NOT ${DOXYGEN_FOUND})
+message(SEND_ERROR "EXOTIC_DOXYGEN is enabled, but Doxygen is not configured.")
+endif()
+
+# Configure the Doxyfile.in to the output Doxyfile configuration.
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in" 
+	"${CMAKE_CURRENT_BINARY_DIR}/Doxyfile" @ONLY)
+	
+# Add custom target for generating doxygen doc.
+add_custom_target(doc ALL
+	COMMAND "${DOXYGEN_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}/Doxyfile"
+	WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+	COMMENT "Generating documents using Doxygen." VERBATIM)
+
 endif()

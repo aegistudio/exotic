@@ -1,6 +1,6 @@
 #pragma once
 /**
- * @brief exotic/list.hpp
+ * @file exotic/list.hpp
  * @author Haoran Luo
  * @brief The doubly-linked list definition.
  *

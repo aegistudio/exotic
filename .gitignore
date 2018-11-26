@@ -11,3 +11,6 @@ Testing
 DartConfiguration.tcl
 CTestTestfile.cmake
 *.test
+
+Doxyfile
+docbin
