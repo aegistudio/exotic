@@ -330,20 +330,22 @@ class rbtreeNodeBase {
 			b.flipColor();
 		}
 	}
-public:
+
 	/// Rebalance the tree as if the current node is the newly inserted red node, and 
 	/// its parent is also a red node. Only useful when the node is not the mulint node.
 	/// It is not possible that its grand parent does not exist with its parent being 
 	/// red. However the uncle could be nil and being black. As the uncle will not be 
 	/// recolored while it is black, this does not matter.
-	/// It is not possible that the iteration ends at a nil node.
-	void doubleRedResolve() noexcept;
+	/// It is not possible that the iteration ends at a nil node. Only applicable to 
+	/// nodes that are either single or mulext node.
+	static void doubleRedResolve(rbtreeNodeBase* node) noexcept;
 	
 	/// Rebalance the tree as if the current node is the double black node. The 
 	/// rebalancing process will only terminate when there's some subtree that its black 
 	/// height will not decrease or it is the subtree starting from root. 
-	/// It is not possible that the iteration ends at a nil node.
-	void doubleBlackResolve() noexcept;
+	/// It is not possible that the iteration ends at a nil node. Only applicable to
+	/// nodes that are either single or mulext node.
+	static void doubleBlackResolve(rbtreeNodeBase* node) noexcept;
 };
 
 } // namespace exotic.
