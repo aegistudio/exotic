@@ -20,10 +20,9 @@ option(EXOTIC_DOXYGEN "Generate documents for exotic (Doxygen required)." ON)
 include_directories(include)
 
 # Make the interface only library for the exotic.
-add_library(exotic INTERFACE)
-target_include_directories(exotic INTERFACE
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/exotic>
-	$<INSTALL_INTERFACE:include/exotic>)
+add_library(exotic STATIC
+	# Implemented common part of the library.
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/rbtree.cpp")
 install(FILES
 	# Basic definitions for the library.
 	"${CMAKE_CURRENT_SOURCE_DIR}/include/exotic/node.hpp"
@@ -33,8 +32,9 @@ install(FILES
 	
 	# Implemented data structures of the library.
 	"${CMAKE_CURRENT_SOURCE_DIR}/include/exotic/list.hpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/include/exotic/rbtree.hpp"
 	DESTINATION "include/exotic")
-install(TARGETS exotic EXPORT exoticCmakeExport)
+install(TARGETS exotic DESTINATION "lib" EXPORT exoticCmakeExport)
 install(EXPORT exoticCmakeExport DESTINATION "lib/cmake")
 
 # Configure the tests, only if EXOTIC_RUNTEST is enabled.

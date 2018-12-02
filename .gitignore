@@ -1,4 +1,6 @@
 bin
+*.a
+*.so
 
 CMakeCache.txt
 CMakeFiles
