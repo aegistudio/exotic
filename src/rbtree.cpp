@@ -24,136 +24,95 @@ void rbtreeNodeBase::doubleRedResolve() noexcept {
 	// Iteratively resolve red parent.
 	while(red(node) && !node -> isRoot()) {
 		// The parent node of current node.
-		rbtreeParent*     nodeParent  = node -> parent();
-		rbtreeParent      parent      = *nodeParent;
-		rbtreeLeftChild*  parentLeft  = parent -> left();
-		rbtreeRightChild* parentRight = parent -> right();
+		rbtreeNodeBase**  nodeParent  = node -> parent();
+		rbtreeNodeBase*   parent      = *nodeParent;
+		rbtreeNodeBase    **parentParent, **parentLeft, **parentRight;
+		rbtreeNodeBase::fetchLinks(parent, parentParent, parentLeft, parentRight);
 		
 		// The grand parent node of current node.
-		rbtreeParent*     parentParent = parent -> parent();
-		rbtreeParent      grand        = *parentParent;
-		rbtreeLeftChild*  grandLeft    = grand -> left();
-		rbtreeRightChild* grandRight   = grand -> right();
+		rbtreeNodeBase*   grand        = *parentParent;
+		rbtreeNodeBase    **grandParent, **grandLeft, **grandRight;
+		rbtreeNodeBase::fetchLinks(grand, grandParent, grandLeft, grandRight);
 		
-		// Judge what shape is the subtree.
-		if(parent == *grandLeft) {
-			// It is the case that parent and node are inside left subtree of grand.
+		// Judge the chirality of the subtree, and assign the uncle.
+		// C   /G\        C     /G\   (The chirality is true only if the parent node is
+		// - /P\  /U\     +   /U\ /P\ on the right of grand parent).
+		bool              chirality   = (parent == *grandRight);
+		rbtreeNodeBase*   uncle       = chirality? *grandLeft : *grandRight;
 			
-			// Judge how to rotate by the uncle of current node.
-			rbtreeRightChild uncle = *grandRight;
-			if(red(uncle)) {
-				// Red uncle resolve.
-				//     /Gb\           /Gb\             /Gr\
-				//   /Pr  Ur   or   Pr\   Ur  --->   Pb    Ub
-				//  Nr                 Nr            Nr (either left or right).
-				parent -> flipColor();
-				uncle  -> flipColor();
-				grand  -> flipColor();
-				node = grand;
-			} else {
-				// Will change the subroot when it is black uncle.
-				rbtreeParent*    grandParent = grand -> parent();
-				rbtreeParent     ancestor    = *grandParent;
-				rbtreeNodeBase** subroot     = grand -> referred();
-				
-				// Check whether it is inner or outer node.
-				if(node == *parentLeft) {
-					// Black uncle resolve 1 (Terminate condition).
-					//      A                 A
-					//     /Gb\              /Pb\
-					//   /Pr\  Ub   --->   Nr   /Gr\
-					//  Nr   c                 c    Ub
-					*subroot = parent; *parentParent = ancestor; // P <-> A
-					rbtreeNodeBase* c = *parentRight;            // may be null.
-					*parentRight = grand; *grandParent = parent; // P <-> G.
-					if(*grandLeft = c) *(c -> parent()) = grand; // G <-> c (assign, test null).
-					parent -> flipColor();                       // Pr -> Pb.
-					grand -> flipColor();                        // Gb -> Gr.
-					node = parent;
-					break;
-				} else {
-					// Black uncle resolve 2 (Terminate condition).
-					//      A                  A
-					//     /Gb\               /Nb\
-					//   /Pr\  Ub   --->   /Pr\  /Gr\
-					//  a  /Nr\            a  b  c   Ub
-					//     b  c
-					rbtreeLeftChild*  nodeLeft  = node -> left();
-					rbtreeRightChild* nodeRight = node -> right();
-					rbtreeLeftChild   b         = *nodeLeft;        // may be null.
-					rbtreeRightChild  c         = *nodeRight;       // may be null.
-					*subroot = node; *nodeParent = ancestor;        // N <-> A.
-					*nodeLeft = parent; *parentParent = node;       // N <-> P.
-					*nodeRight = grand; *grandParent = node;        // N <-> G.
-					if(*parentRight = b) *(b -> parent()) = parent; // P <-> b (assign, test null).
-					if(*grandLeft = c) *(c -> parent()) = grand;    // G <-> c (assign, test null).
-					node -> flipColor();                            // Nr -> Nb.
-					grand -> flipColor();                           // Gb -> Gr.
-					break;
-				}
-			}
+		// Judge how to rotate by the uncle of current node.
+		if(red(uncle)) {
+			// Red uncle resolve.
+			//     /Gb\           /Gr\  |    /Gb\           /Gr\ 
+			// - /Pr\ Ur  --->  /Pb\ Ub | + Ur /Pr\ --->   Ub /Pb\
+			//    Nr             Nr     |       Nr             Nr
+			parent -> flipColor();
+			uncle  -> flipColor();
+			grand  -> flipColor();
+			node = grand;
 		} else {
-			// It is the case that parent and node are inside right subtree of grand.
+			// Fetch more information for black uncle resolving.
+			// The proceeding algorithm requires these information.
+			//      A                A
+			// C   /G\        C     /G\
+			// -  Go  Gi      +    Gi Go
+			//   /P\  /U\         /U\ /P\
+			//  Po Pi                Pi Po
+			rbtreeNodeBase**  parentInner = chirality? parentLeft : parentRight;
+			rbtreeNodeBase**  parentOuter = chirality? parentRight : parentLeft;
+			rbtreeNodeBase**  grandInner  = chirality? grandLeft : grandRight;
+			rbtreeNodeBase**  grandOuter  = chirality? grandRight : grandLeft;
 			
-			// Judge how to rotate by the uncle of current node.
-			rbtreeLeftChild uncle = *grandLeft;
-			if(red(uncle)) {
-				// Red uncle resolve.
-				//    /Gb\            /Gb\           /Gr\
-				//  Ur   Pr\    or  Ur   /Pr  --->  Ub   Pb
-				//         Nr            Nr              Nr (either on left or right).
-				parent -> flipColor();
-				uncle -> flipColor();
-				grand -> flipColor();
-				node = grand;
+			// Will change the subroot when it is black uncle.
+			rbtreeNodeBase*  ancestor     = *grandParent;
+			rbtreeNodeBase** subroot      = grand -> referred();
+			
+			// Check whether it is inner or outer node.
+			if(node == *parentOuter) {
+				// Black uncle resolve 1 (Terminate condition).
+				//      A                 A        |      A                 A
+				//     /Gb\              /Pb\      |     /Gb\              /Pb\
+				// -  Go   Gi          Po    Pi    | +  Gi   Go          Pi    Po
+				//   /Pr\  Ub   --->   Nr   /Gr\   |    Ub  /Pr\  --->  /Gr\   Nr
+				//  Po  Pi                 Go   Gi |        Pi Po       Gi Go
+				//  Nr   c                 c    Ub |        c  Nr       Ub c
+				*subroot = parent; *parentParent = ancestor;  // P <-> A
+				rbtreeNodeBase* c = *parentInner;             // may be null.
+				*parentInner = grand; *grandParent = parent;  // P <-> G.
+				if(*grandOuter = c) *(c -> parent()) = grand; // G <-> c (assign, test null).
+				parent -> flipColor();                        // Pr -> Pb.
+				grand -> flipColor();                         // Gb -> Gr.
+				node = parent;
+				break;
 			} else {
-				// Will change the subroot when it is black uncle.
-				rbtreeParent*    grandParent = grand -> parent();
-				rbtreeParent     ancestor    = *grandParent;
-				rbtreeNodeBase** subroot     = grand -> referred();
-				
-				// Check whether it is inner or outer node.
-				if(node == *parentRight) {
-					// Black uncle resolve 1 (Terminate condition).
-					//      A                 A
-					//     /Gb\              /Pb\
-					//   Ub  /Pr\  --->    /Gr\  Nr
-					//      c   Nr        Ub   c
-					*subroot = parent; *parentParent = ancestor;  // P <-> A
-					rbtreeNodeBase* c = *parentLeft;              // may be null.
-					*parentLeft = grand; *grandParent = parent;   // P <-> G.
-					if(*grandRight = c) *(c -> parent()) = grand; // G <-> c (assign, test null).
-					parent -> flipColor();                        // Pr -> Pb.
-					grand -> flipColor();                         // Gb -> Gr.
-					node = parent;
-					break;
-				} else {
-					// Black uncle resolve 2 (Terminate condition).
-					//      A                      A
-					//     /Gb\                   /Nb\
-					//   Ub  /Pr\  Ub   --->   /Gr\  /Pr\
-					//     /Nr\ e              Ub c  d  e
-					//     c  d
-					rbtreeLeftChild*  nodeLeft  = node -> left();
-					rbtreeRightChild* nodeRight = node -> right();
-					rbtreeLeftChild   c         = *nodeLeft;       // may be null.
-					rbtreeRightChild  d         = *nodeRight;      // may be null.
-					*subroot = node; *nodeParent = ancestor;       // N <-> A.
-					*nodeRight = parent; *parentParent = node;     // N <-> P.
-					*nodeLeft = grand; *grandParent = node;        // N <-> G.
-					if(*grandRight = c) *(c -> parent()) = grand;  // G <-> c (assign, test null).
-					if(*parentLeft = d) *(d -> parent()) = parent; // G <-> d (assign, test null).
-					node -> flipColor();                           // Nr -> Nb.
-					grand -> flipColor();                          // Gb -> Gr.
-					break;
-				}
+				// Black uncle resolve 2 (Terminate condition).
+				//      A                  A       |      A                  A
+				//     /Gb\               /Nb\     |     /Gb\               /Nb\
+				//    Go   Gi           No    Ni   |    Gi   Go           Ni    No
+				// - /Pr\  Ub   --->   /Pr\  /Gr\  | +  Ub  /Pr\  --->   /Gr\  /Pr\
+				//  Po  Pi             Po Pi Go Gi |       Pi  Po        Gi Go Pi Po
+				//  a  /Nr\            a  b  c  Ub |      /Nr\ a         Ub c  b  a
+				//     No Ni                       |      Ni No
+				//     b  c                        |      c  b
+				rbtreeNodeBase    **nodeInner, **nodeOuter;
+				rbtreeNodeBase::fetchLinks(node, nodeParent, nodeOuter, nodeInner, chirality);
+				rbtreeNodeBase*   b = *nodeOuter;               // may be null.
+				rbtreeNodeBase*   c = *nodeInner;               // may be null.
+				*subroot = node; *nodeParent = ancestor;        // N <-> A.
+				*nodeOuter = parent; *parentParent = node;      // N <-> P.
+				*nodeInner = grand; *grandParent = node;        // N <-> G.
+				if(*parentInner = b) *(b -> parent()) = parent; // P <-> b (assign, test null).
+				if(*grandOuter = c) *(c -> parent()) = grand;   // G <-> c (assign, test null).
+				node -> flipColor();                            // Nr -> Nb.
+				grand -> flipColor();                           // Gb -> Gr.
+				break;
 			}
 		}
 	}
 	
 	// Increase the black height if the node is red root.
 	if(red(node) && node -> isRoot()) node -> flipColor();
-}	
+}
 
 /// Implementation for rbtreeNodeBase::doubleBlackResolve().
 void rbtreeNodeBase::doubleBlackResolve() noexcept {

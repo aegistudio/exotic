@@ -237,6 +237,45 @@ class rbtreeNodeBase {
 		}
 	}
 	
+	/// Fetch the parent and two children in at once. Chirality information might be included.
+	static inline void fetchLinks(rbtreeNodeBase* node, rbtreeNodeBase**& parent, 
+		rbtreeNodeBase**& outer, rbtreeNodeBase**& inner, bool chirality = false) noexcept {
+		rbtreeNodeBase** left;
+		rbtreeNodeBase** right;
+		
+		switch(node -> flags & rbfTypeMask) {
+			case rbfSingle: {
+				// The parent node of this single node.
+				parent = &(node -> type.single.parent);
+				left = &(node -> type.single.left);
+				right = &(node -> type.single.right);
+			} break;
+			
+			case rbfMulint: {
+				// Find it in the external node.
+				node = deprecatedFetchMulext(node);
+			}
+			
+			case rbfMulext: {
+				// The parent node of this external node.
+				parent = &(node -> type.mulext.parent);
+				left = &(node -> type.mulext.front -> type.mulint.previous);
+				right = &(node -> type.mulext.back -> type.mulint.next);
+			} break;
+			
+			case rbfOrphan:
+			default: {
+				parent = nullptr;
+				left = &(node -> type.sentinel.root);
+				right = &(node -> type.sentinel.root);
+			} break;
+		}
+
+		// Place the nodes according to the chirality.
+		outer = chirality? right : left;
+		inner = chirality? left : right;
+	}
+	
 	/// The mutable field in the parent of this node, which is pointing to this node.
 	inline rbtreeNodeBase** referred() noexcept {
 		// Fetch the parent of this node.
