@@ -36,9 +36,9 @@ void rbtreeNodeBase::doubleRedResolve(rbtreeNodeBase* node) noexcept {
 		// Judge how to rotate by the uncle of current node.
 		if(red(uncle)) {
 			// Red uncle resolve.
-			// C   /Gb\           /Gr\  | C  /Gb\           /Gr\ 
-			// - /Pr\ Ur  --->  /Pb\ Ub | + Ur /Pr\ --->   Ub /Pb\
-			//    Nr             Nr     |       Nr             Nr
+			// C   /Gb\           /Gr\  | C  /Gb\         /Gr\   |
+			// - /Pr\ Ur  --->  /Pb\ Ub | + Ur /Pr\ ---> Ub /Pb\ |
+			//    Nr             Nr     |       Nr           Nr  |
 			parent -> flipColor();    // Pr -> Pb.
 			uncle  -> flipColor();    // Ur -> Ub.
 			grand  -> flipColor();    // Gb -> Gr.
@@ -46,14 +46,13 @@ void rbtreeNodeBase::doubleRedResolve(rbtreeNodeBase* node) noexcept {
 		} else {
 			// Fetch more information for black uncle resolving.
 			// The proceeding algorithm requires these information.
-			//      A      |        A
-			// C   /G\     | C     /G\
-			// -  Go  Gi   | +    Gi Go
-			//   /P\  /U\  |     /U\ /P\
-			//  Po Pi      |        Pi Po
+			//      A     |      A     |
+			// C   /G\    | C   /G\    |
+			// -  Go  Gi  | +  Gi Go   |
+			//   /P\  /U\ |   /U\ /P\  |
+			//  Po Pi     |      Pi Po |
 			rbtreeNodeBase** parentInner = chirality? parentLeft : parentRight;
 			rbtreeNodeBase** parentOuter = chirality? parentRight : parentLeft;
-			rbtreeNodeBase** grandInner  = chirality? grandLeft : grandRight;
 			rbtreeNodeBase** grandOuter  = chirality? grandRight : grandLeft;
 			
 			// Will change the subroot when it is black uncle.
@@ -63,41 +62,44 @@ void rbtreeNodeBase::doubleRedResolve(rbtreeNodeBase* node) noexcept {
 			// Check whether it is inner or outer node.
 			if(node == *parentOuter) {
 				// Black uncle resolve 1 (Terminate condition).
-				//      A            A       |     A              A
-				// C   /Gb\         /Pb\     | C  /Gb\           /Pb\
-				// -  Go   Gi      Po   Pi   | + Gi   Go        Pi   Po
-				//   /Pr\  Ub ---> Nr  /Gr\  |   Ub  /Pr\ ---> /Gr\  Nr
-				//   Po Pi             Go Gi |       Pi Po     Gi Go
-				//   Nr  c             c  Ub |       c  Nr     Ub c
-				*subroot = parent; *parentParent = ancestor;  // P <-> A
-				rbtreeNodeBase* c = *parentInner;             // may be null.
-				*parentInner = grand; *grandParent = parent;  // P <-> G.
-				if(*grandOuter = c) *(c -> parent()) = grand; // G <-> c (assign, test null).
-				parent -> flipColor();                        // Pr -> Pb.
-				grand -> flipColor();                         // Gb -> Gr.
+				//      A            A       |     A              A     |
+				// C   /Gb\         /Pb\     | C  /Gb\           /Pb\   |
+				// -  Go   Gi      Po   Pi   | + Gi   Go        Pi   Po |
+				//   /Pr\  Ub ---> Nr  /Gr\  |   Ub  /Pr\ ---> /Gr\  Nr |
+				//   Po Pi             Go Gi |       Pi Po     Gi Go    |
+				//   Nr  c             c  Ub |       c  Nr     Ub c     |
+				*subroot = parent; *parentParent = ancestor; // P <-> A
+				rbtreeNodeBase* c = *parentInner;            // may be null.
+				*parentInner = grand; *grandParent = parent; // P <-> G.
+				if((*grandOuter = c) != nullptr)             // (assign, test null).
+					*(c -> parent()) = grand;                // G <-> c.
+				parent -> flipColor();                       // Pr -> Pb.
+				grand -> flipColor();                        // Gb -> Gr.
 				node = parent;
 				break;
 			} else {
 				// Black uncle resolve 2 (Terminate condition).
-				//      A              A       |     A                A
-				//     /Gb\           /Nb\     |    /Gb\             /Nb\
-				// C  Go   Gi       No    Ni   | C Gi   Go         Ni    No
-				// - /Pr\  Ub ---> /Pr\  /Gr\  | + Ub  /Pr\  ---> /Gr\  /Pr\
-				//  Po  Pi         Po Pi Go Gi |      Pi  Po      Gi Go Pi Po
-				//  a  /Nr\        a  b  c  Ub |     /Nr\ a       Ub c  b  a
-				//     No Ni                   |     Ni No
-				//     b  c                    |     c  b
+				//      A              A       |     A                A       |
+				//     /Gb\           /Nb\     |    /Gb\             /Nb\     |
+				// C  Go   Gi       No    Ni   | C Gi   Go         Ni    No   |
+				// - /Pr\  Ub ---> /Pr\  /Gr\  | + Ub  /Pr\  ---> /Gr\  /Pr\  |
+				//  Po  Pi         Po Pi Go Gi |      Pi  Po      Gi Go Pi Po |
+				//  a  /Nr\        a  b  c  Ub |     /Nr\ a       Ub c  b  a  |
+				//     No Ni                   |     Ni No                    |
+				//     b  c                    |     c  b                     |
 				rbtreeNodeBase    **nodeInner, **nodeOuter;
 				rbtreeNodeBase::fetchLinks(node, nodeParent, nodeOuter, nodeInner, chirality);
-				rbtreeNodeBase*   b = *nodeOuter;               // may be null.
-				rbtreeNodeBase*   c = *nodeInner;               // may be null.
-				*subroot = node; *nodeParent = ancestor;        // N <-> A.
-				*nodeOuter = parent; *parentParent = node;      // N <-> P.
-				*nodeInner = grand; *grandParent = node;        // N <-> G.
-				if(*parentInner = b) *(b -> parent()) = parent; // P <-> b (assign, test null).
-				if(*grandOuter = c) *(c -> parent()) = grand;   // G <-> c (assign, test null).
-				node -> flipColor();                            // Nr -> Nb.
-				grand -> flipColor();                           // Gb -> Gr.
+				rbtreeNodeBase*   b = *nodeOuter;          // may be null.
+				rbtreeNodeBase*   c = *nodeInner;          // may be null.
+				*subroot = node; *nodeParent = ancestor;   // N <-> A.
+				*nodeOuter = parent; *parentParent = node; // N <-> P.
+				*nodeInner = grand; *grandParent = node;   // N <-> G.
+				if((*parentInner = b) != nullptr)          // (assign, test null).
+					*(b -> parent()) = parent;             // P <-> b.
+				if((*grandOuter = c) != nullptr)           // (assign, test null).
+					*(c -> parent()) = grand;              // G <-> c.
+				node -> flipColor();                       // Nr -> Nb.
+				grand -> flipColor();                      // Gb -> Gr.
 				break;
 			}
 		}
@@ -126,12 +128,11 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 		// subtree is 0, which is impossible.
 		
 		// Judge the chirality of the nodes and fetch the sibling.
-		//      /P\     |     /P\
-		// C  Po  Pi    | C  Pi  Po
-		// - /Nb\ /S\   | + /S\  /Nb\ 
-		//  No Ni Si So |  So Si Ni No
+		//      /P\     |     /P\      |
+		// C  Po  Pi    | C  Pi  Po    |
+		// - /Nb\ /S\   | + /S\  /Nb\  |
+		//  No Ni Si So |  So Si Ni No |
 		bool              chirality   = (*parentRight == node);
-		rbtreeNodeBase**  parentOuter = chirality? parentRight : parentLeft;
 		rbtreeNodeBase**  parentInner = chirality? parentLeft : parentRight;
 		rbtreeNodeBase*   sibling     = *parentInner;
 		rbtreeNodeBase    **siblingParent, **siblingOuter, **siblingInner;
@@ -142,13 +143,13 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 		if(red(sibling)) {
 			// Red sibling resolve. (note that the left child of sibling
 			// will always be black, and will always have children).
-			//       A               A     |        A              A
-			//      /Pb\            /Sb\   |       /Pb\           /Sb\
-			// C  Po    Pi         Si  So  | C   Pi    Po        So  Si
-			// - /Nb\  /Sr\ --->  /Pr\ n+2 | +  /Sr\  /Nb\ ---> n+2 /Pr\
-			//   No Ni Si So     Po  Pi    |   So Si  Ni No        Pi  Po
-			//   n  n n+2 n+2   /Nb\ n+2   |  n+2 n+2 n  n        n+2 /Nb\
-			//        (c)       n  n (c)   |      (c)             (c) n  n
+			//       A               A     |        A              A       |
+			//      /Pb\            /Sb\   |       /Pb\           /Sb\     |
+			// C  Po    Pi         Si  So  | C   Pi    Po        So  Si    |
+			// - /Nb\  /Sr\ --->  /Pr\ n+2 | +  /Sr\  /Nb\ ---> n+2 /Pr\   |
+			//   No Ni Si So     Po  Pi    |   So Si  Ni No        Pi  Po  |
+			//   n  n n+2 n+2   /Nb\ n+2   |  n+2 n+2 n  n        n+2 /Nb\ |
+			//        (c)       n  n (c)   |      (c)             (c) n  n |
 			rbtreeNodeBase* c = *siblingInner;
 			*parentInner = c; *(c -> parent()) = parent;     // Pb <-> c.
 			*siblingInner = parent; *parentParent = sibling; // Pb <-> Sr.
@@ -164,13 +165,13 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 		// Now sibling node must be red, but its children may not be.
 		if(red(*siblingOuter)) {
 			// Red outer node of sibling. (Terminate condition).
-			//        A                   A          |         A                 A
-			// C    / P \               / S \        | C     / P \             / S \
-			// -  Po     Pi           Si      So     | +    Pi    Po         So     Si
-			//   /Nb\   /Sb\   --->  /Pr\    /Srb\   |     /Sb\  /Nb\ ---> /Slb\   /Pr\
-			//   No Ni  Si So       Po  Pi   Sri Sro |     So Si Ni No    Slo Sli  Pi Po
-			//   n  n n+1 /Srr\    /Nb\ n+1  n+1 n+1 |  /Slr\ n+1 n  n    n+1 n+1 n+1 /Nb\
-			//        (c) n+1 n+1  n  n (c)          | n+1 n+1 (c)                (c) n  n
+			//        A                   A          |         A                 A         |
+			// C    / P \               / S \        | C     / P \             / S \       |
+			// -  Po     Pi           Si      So     | +    Pi    Po         So     Si     |
+			//   /Nb\   /Sb\   --->  /Pr\    /Srb\   |     /Sb\  /Nb\ ---> /Slb\   /Pr\    |
+			//   No Ni  Si So       Po  Pi   Sri Sro |     So Si Ni No    Slo Sli  Pi Po   |
+			//   n  n n+1 /Srr\    /Nb\ n+1  n+1 n+1 |  /Slr\ n+1 n  n    n+1 n+1 n+1 /Nb\ |
+			//        (c) n+1 n+1  n  n (c)          | n+1 n+1 (c)                (c) n  n |
 			rbtreeNodeBase* c = *siblingInner;
 			*parentInner = c; *(c -> parent()) = parent;     // P <-> c.
 			*siblingInner = parent; *parentParent = sibling; // P <-> Sb.
@@ -186,15 +187,15 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 			// Red inner node of sibling. (Terminate condition).
 			// This is a double rotation, and result will be shown.
 			// (c, d, e may not be null as n >= 1).
-			//        A                    A         |         A                  A
-			//      / P \                 /Sl\       |       / P \               /Sr\
-			// C  Po     Pi            Ii      Io    | C   Pi      Po         Io      Ii
-			// - /Nb\   /Sb\   --->   /Pb\    /Sb\   | +  /Sb\    /Nb\ --->  /Sb\    /Pb\
-			//   No Ni  Si So        Po Pi    Si So  |   So  Si   Ni No     So  Si  Pi   Po
-			//   n  n /Slr\ n+1    /Nb\ n+1  n+1 n+1 |  n+1 /Srr\ n  n      n+1 n+1 n+1 /Nb\ 
-			//        Ii Io (e)    No Ni (c) (d) (e) |  (e) Io Ii           (e) (d) (c) Ni No
-			//       n+1 n+1       n  n              |      n+1 n+1                     n  n
-			//       (c) (d)                         |      (d) (c)
+			//        A                    A         |         A                  A           |
+			//      / P \                 /Sl\       |       / P \               /Sr\         |
+			// C  Po     Pi            Ii      Io    | C   Pi      Po         Io      Ii      |
+			// - /Nb\   /Sb\   --->   /Pb\    /Sb\   | +  /Sb\    /Nb\ --->  /Sb\    /Pb\     |
+			//   No Ni  Si So        Po Pi    Si So  |   So  Si   Ni No     So  Si  Pi   Po   |
+			//   n  n /Slr\ n+1    /Nb\ n+1  n+1 n+1 |  n+1 /Srr\ n  n      n+1 n+1 n+1 /Nb\  |
+			//        Ii Io (e)    No Ni (c) (d) (e) |  (e) Io Ii           (e) (d) (c) Ni No |
+			//       n+1 n+1       n  n              |      n+1 n+1                     n  n  |
+			//       (c) (d)                         |      (d) (c)                           |
 			rbtreeNodeBase*   inner       = *siblingInner;
 			rbtreeNodeBase    **innerParent, **innerInner, **innerOuter;
 			rbtreeNodeBase::fetchLinks(inner, innerParent, innerOuter, innerInner, !chirality);
@@ -214,21 +215,127 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 		// Now both inner node and outer node is black. And sibling is black.
 		if(red(parent)) {
 			// Red parent while triple black. (Terminate condition).
-			// C   / Pr \             / Pb \     | C    / Pr \            / Pb \
-			// - /Nb\  b/Sb\b ---> /Nb\  b/Sr\b  | + b/Sb\b  /Nb\ ---> b/Sr\b  /Nb\
-			//   n  n  n+1 n+1     n  n  n+1 n+1 |   n+1 n+1 n  n      n+1 n+1 n  n
+			// C   / Pr \             / Pb \     | C    / Pr \            / Pb \    |
+			// - /Nb\  b/Sb\b ---> /Nb\  b/Sr\b  | + b/Sb\b  /Nb\ ---> b/Sr\b  /Nb\ |
+			//   n  n  n+1 n+1     n  n  n+1 n+1 |   n+1 n+1 n  n      n+1 n+1 n  n |
 			(*sibling).swapColor(*parent);
 			break;
 		} else {
 			// Black parent while triple black.
-			// C   / Pb \             / Pb \     | C    / Pb \            / Pb \
-			// - /Nb\  b/Sb\b ---> /Nb\  b/Sr\b  | + b/Sb\b  /Nb\ ---> b/Sr\b  /Nb\
-			//   n  n  n+1 n+1     n  n  n+1 n+1 |   n+1 n+1 n  n      n+1 n+1 n  n
+			// C   / Pb \             / Pb \     | C    / Pb \            / Pb \    |
+			// - /Nb\  b/Sb\b ---> /Nb\  b/Sr\b  | + b/Sb\b  /Nb\ ---> b/Sr\b  /Nb\ |
+			//   n  n  n+1 n+1     n  n  n+1 n+1 |   n+1 n+1 n  n      n+1 n+1 n  n |
 			// Parent becomes the new double black node, as the subtree have decreased
 			// its black height by 1.
 			sibling -> flipColor();
 			node = parent;
 		}
+	}
+}
+
+/// Implementation for rbtreeNodeBase::sentinelPrune().
+void rbtreeNodeBase::sentinelPrune(rbtreeNodeBase* root) noexcept {
+	rbtreeNodeBase* node = root -> type.sentinel.root;
+	if(node == nullptr) return;
+	root -> type.sentinel.root = nullptr;
+	
+	// The iteration will eventually back to the sentinel, so is the condition.
+	rbtreeFlag nodeType;
+	while((nodeType = static_cast<rbtreeFlag>((node -> flags & rbfTypeMask))) != rbfOrphan) {
+		
+		// Convert the mulext node into single node before going further.
+		if(nodeType == rbfMulext) {
+			// The previous and next node for 
+			rbtreeNodeBase* left = node -> type.mulext.front -> type.mulint.previous;
+			rbtreeNodeBase* right = node -> type.mulext.back -> type.mulint.next;
+			
+			// Separate the mulint nodes as a chain first.
+			node -> type.mulext.front -> type.mulint.previous = nullptr;
+			node -> type.mulext.back -> type.mulint.next = nullptr;
+			node -> type.mulext.front -> type.mulint.mulext = nullptr;
+			node -> type.mulext.back -> type.mulint.mulext = nullptr;
+			
+			// Iteratively reset the node status.
+			for(rbtreeNodeBase* mulint = node -> type.mulext.front; mulint != nullptr;) {
+				rbtreeNodeBase* mulintNext = mulint -> type.mulint.next;
+				mulint -> type.mulint.previous = nullptr;
+				mulint -> type.mulint.next = nullptr;
+				mulint -> flags = rbfOrphan;
+				mulint = mulintNext;
+			}
+			
+			// Now we can safely set the node to single node.
+			nodeType = rbfSingle;
+			node -> flags = nodeType; // The color is not important anymore.
+			node -> type.single.left = left;
+			node -> type.single.right = right;
+		}
+		
+		// Check whether there's some children of current node.
+		// As the next time the node comes back to their parent, they should be removed 
+		// from the parent, and each subtree should only be visited once, so simply 
+		// remove that node from its parent's link.
+		if(node -> type.single.left != nullptr) {
+			rbtreeNodeBase* left = node -> type.single.left;
+			node -> type.single.left = nullptr;
+			node = left;
+		}
+		else if(node -> type.single.right != nullptr) {
+			rbtreeNodeBase* right = node -> type.single.right;
+			node -> type.single.right = nullptr;
+			node = right;
+		}
+		else {
+			node -> flags = rbfOrphan;
+			rbtreeNodeBase* parent = node -> type.single.parent;
+			node -> type.single.parent = nullptr;
+			node = parent;
+		}
+	}
+}
+
+/// Implementation for rbtreeNodeBase::insert().
+void rbtreeNodeBase::insert(rbtreeNodeBase* target, int relation) noexcept {
+	if(relation == 0) {
+		// Judge what to do with the node, can only be either single or mulext.
+		if((target -> flags & rbfTypeMask) == rbfSingle) {
+			// Make current node the mulint node.
+			flags = static_cast<rbtreeFlag>(rbfMulint | rbfMulintFront | rbfMulintBack);
+			type.mulint.previous = target -> type.single.left;
+			type.mulint.next = target -> type.single.right;
+			type.mulint.mulext = target;
+			
+			// Elevate the target node if it is currently not a mulext node.
+			target -> flags = static_cast<rbtreeFlag>(
+				((target -> flags | rbfTypeMask) ^ rbfTypeMask) | rbfMulext);
+			target -> type.mulext.back = this;
+			target -> type.mulext.front = this;
+		} else {
+			rbtreeNodeBase** front = &(type.mulext.front);
+			
+			// Make current node the mulint node and the queue front.
+			flags = static_cast<rbtreeFlag>(rbfMulint | rbfMulintFront);
+			type.mulint.mulext = target;
+			
+			// Make current front node an internal node.
+			(*front) -> flags = static_cast<rbtreeFlag>(((*front) -> flags) ^ rbfMulintFront);
+			(*front) -> type.mulint.mulext = nullptr;
+			
+			// Insert current node as the new front.
+			type.mulint.previous = (*front) -> type.mulint.previous;
+			type.mulint.next = (*front);
+			(*front) -> type.mulint.previous = this;
+			(*front) = this;
+		}
+	} else {
+		// Insert the node into its parent's field first.
+		if(relation < 0) *(target -> left()) = this;
+		else *(target -> right()) = this;
+		
+		// Update the parent node of this node.
+		type.single.parent = target;
+		flags = static_cast<rbtreeFlag>(rbfSingle | rbfColorRed);
+		if(red(target)) doubleRedResolve(this);
 	}
 }
 

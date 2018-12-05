@@ -1,6 +1,6 @@
 #pragma once
 /**
- * @brief exotic/rbtree.hpp
+ * @file exotic/rbtree.hpp
  * @author Haoran Luo
  * @brief The red-black tree definition.
  *
@@ -21,7 +21,7 @@ namespace exotic {
  * should be managed by a `exotic::rbtreeNode<scopeType>` instead. This class just 
  * provides some easy-to-use functions for the `exotic::rbtreeNode<scopeType>`.
  */
-class rbtreeNodeBase {
+struct rbtreeNodeBase {
 	// Befriending the exotic::rbtreeNode<scopeType> so that the concrete node have
 	// full access to the private methods.
 	template<typename scopeType> friend class rbtreeNode;
@@ -128,6 +128,14 @@ class rbtreeNodeBase {
 			rbtreeNodeBase* next;
 		} mulint;
 	} type;
+	
+	/// Initialize the rbtreeNodeBase.
+	rbtreeNodeBase() noexcept: flags(rbfOrphan) {
+		// Of course, the node must be initialized as a sentinel node.
+		type.sentinel._1 = nullptr;
+		type.sentinel._2 = nullptr;
+		type.sentinel.root = nullptr;
+	}
 	
 	/// Retrieve the external node when it is an internal.
 	/// @deprecated Slow function, just placed for correct implementation.
@@ -346,6 +354,27 @@ class rbtreeNodeBase {
 	/// It is not possible that the iteration ends at a nil node. Only applicable to
 	/// nodes that are either single or mulext node.
 	static void doubleBlackResolve(rbtreeNodeBase* node) noexcept;
+	
+	/// Destroy the whole tree from the node denoted by this sentinel node.
+	/// The specified node must be sentinel (no check will be performed, and will
+	/// cause your code to run into unpredictable state if not so).
+	/// The destruction order is not guaranteed, the caller should always regard such
+	/// operation as atomic.
+	/// Of course, you should never share the rbtree with other threads while perform
+	/// pruning, otherwise the state of tree will be undefined.
+	static void sentinelPrune(rbtreeNodeBase* node) noexcept;
+	
+	/// The operation of inserting a node into the tree with given relation.
+	/// @param[in] target the target node to insert the new node.
+	/// @param[in] relation where to insert the new node:
+	///    - when relation < 0, the node will be inserted to the left children (will 
+	///      not check whether there's node on left subtree of target, will cause undefined
+	///      behavior when incorrect parameter is provided).
+	///    - when relation == 0, the node will be inserted as the equivalent node of this
+	///      node. The mulext/mulint node logic will be included.
+	///    - when relation > 0, the node will be inserted to the right children (will 
+	///      also not perform checking, causing undefined behavior if incorrectly used).
+	void insert(rbtreeNodeBase* target, int relation) noexcept;
 };
 
 } // namespace exotic.
