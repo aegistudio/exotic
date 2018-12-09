@@ -339,4 +339,108 @@ void rbtreeNodeBase::insert(rbtreeNodeBase* target, int relation) noexcept {
 	}
 }
 
+/// Implementation for rbtreeNodeBase::extswap().
+void rbtreeNodeBase::extswap(rbtreeNodeBase& b) noexcept {
+	rbtreeNodeBase& a = *this;
+	rbtreeNodeBase* nilParent;	// Just an eye candy for updating nil nodes.
+	
+	// Fetch the tree nodes from each nodes.
+	rbtreeNodeBase **aParentField, **aLeftField, **aRightField;
+	rbtreeNodeBase::fetchLinks(&a, aParentField, aLeftField, aRightField);
+	rbtreeNodeBase *aParent = *aParentField, *aLeft = *aLeftField, *aRight = *aRightField;
+	
+	rbtreeNodeBase **bParentField, **bLeftField, **bRightField;
+	rbtreeNodeBase::fetchLinks(&b, bParentField, bLeftField, bRightField);
+	rbtreeNodeBase *bParent = *bParentField, *bLeft = *bLeftField, *bRight = *bRightField;
+	
+	// Fetch the external links, notice that there're maybe some nil nodes as children.
+	rbtreeNodeBase **aParentRefer = a.referred();
+	rbtreeNodeBase **bParentRefer = b.referred();
+	rbtreeNodeBase **aLeftRefer = aLeft != nullptr? aLeft -> extparent() : &nilParent;
+	rbtreeNodeBase **bLeftRefer = bLeft != nullptr? bLeft -> extparent() : &nilParent;
+	rbtreeNodeBase **aRightRefer = aRight != nullptr? aRight -> extparent() : &nilParent;
+	rbtreeNodeBase **bRightRefer = bRight != nullptr? bRight -> extparent() : &nilParent;
+	
+	// Perform swapping by updating the field links.
+	*aParentField = bParent; *bParentField = aParent;
+	*aLeftField = bLeft; *bLeftField = aLeft;
+	*aRightField = bRight; *bRightField = aRight;
+	*aParentRefer = *aLeftRefer = *aRightRefer = &b; 
+	*bParentRefer = *bLeftRefer = *bRightRefer = &a;
+}
+
+/// Implementation for rbtreeNodeBase::nullswap().
+void rbtreeNodeBase::nullswap(rbtreeNodeBase& null) noexcept {
+	// Copy the node internal status first.
+	switch((flags & rbfTypeMask)) {
+		// The case that the node is a stand alone node.
+		case rbfSingle: {
+			// Copy the flags and pointers into the null object.
+			null.flags = flags;
+			null.type.single.parent = type.single.parent;
+			null.type.single.left = type.single.left;
+			null.type.single.right = type.single.right;
+			
+			// Update the external pointers.
+			if(null.type.single.left != nullptr)
+				*(null.type.single.left -> extparent()) = &null;
+			if(null.type.single.right != nullptr)
+				*(null.type.single.right -> extparent()) = &null;
+			*(referred()) = &null;
+		} break;
+		
+		// The case that the node is the mulint node.
+		case rbfMulint: {
+			// Copy the flags and pointers into the null object.
+			null.flags = flags;
+			null.type.mulint.mulext = type.mulint.mulext;
+			null.type.mulint.previous = type.mulint.previous;
+			null.type.mulint.next = type.mulint.next;
+			
+			// Update the previous node or mulext node.
+			if((flags & rbfMulintFront) != 0) {
+				type.mulint.mulext -> type.mulext.front = &null;
+			} else {
+				type.mulint.previous -> type.mulint.next = &null;
+			}
+			
+			// Update the next node of mulext node.
+			if((flags & rbfMulintBack) != 0) {
+				type.mulint.mulext -> type.mulext.back = &null;
+			} else {
+				type.mulint.next -> type.mulint.previous = &null;
+			}
+		} break;
+		
+		// The case that the node is the mulext node.
+		case rbfMulext: {
+			// Copy the flags and pointers into the null object.
+			null.flags = flags;
+			null.type.mulext.parent = type.mulext.parent;
+			null.type.mulext.front = type.mulext.front;
+			null.type.mulext.back = type.mulext.back;
+			
+			// Update the references to front and back node.
+			null.type.mulext.front -> type.mulint.mulext = &null;
+			if(null.type.mulext.front -> type.mulint.previous != nullptr)
+				*(null.type.mulext.front -> type.mulint.previous -> extparent()) = &null;
+			null.type.mulext.back -> type.mulint.mulext = &null;
+			if(null.type.mulext.back -> type.mulint.next != nullptr)
+				*(null.type.mulext.back -> type.mulint.mulext -> extparent()) = &null;
+			*(referred()) = &null;
+		} break;
+		
+		// There's nothing needs to be done, because the node is an orphan.
+		// Sentinel node should be swapped by the container manually.
+		default: 
+			return;	// Return directly.
+	}
+	
+	// Make the current node a null node.
+	flags = rbfOrphan;
+	type.sentinel._1 = nullptr;
+	type.sentinel.root = nullptr;
+	type.sentinel._2 = nullptr;
+}
+
 } // namespace exotic.

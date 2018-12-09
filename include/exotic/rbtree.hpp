@@ -21,7 +21,7 @@ namespace exotic {
  * should be managed by a `exotic::rbtreeNode<scopeType>` instead. This class just 
  * provides some easy-to-use functions for the `exotic::rbtreeNode<scopeType>`.
  */
-struct rbtreeNodeBase {
+class rbtreeNodeBase {
 	// Befriending the exotic::rbtreeNode<scopeType> so that the concrete node have
 	// full access to the private methods.
 	template<typename scopeType> friend class rbtreeNode;
@@ -106,10 +106,10 @@ struct rbtreeNodeBase {
 			/// The pointer to parent of this node.
 			rbtreeNodeBase* parent;
 			
-			/// The front of the queue.
+			/// The back of the queue.
 			rbtreeNodeBase* back;
 			
-			/// The back of the queue.
+			/// The front of the queue.
 			rbtreeNodeBase* front;
 		} mulext;
 		
@@ -221,17 +221,24 @@ struct rbtreeNodeBase {
 		}
 	}
 	
+	/// The parent node when you are sure that you are refering to a external node (either a
+	/// single node or a mulext node). The behavior will be undefined if you are refering to 
+	/// something else and no check will be performed.
+	inline rbtreeNodeBase** extparent() noexcept {
+		/// As when they are external objects, their parent node will be at the first field,
+		/// so we can just return the first field of parent.
+		// if((flags & rbtreeTypeMask) == type.single.parent) 
+		// 	return &(type.single.parent);
+		// else return &(type.mulext.parent);
+		return &(type.single.parent);
+	}
+	
 	/// The parent node's address of this node, depending on the type of node.
 	inline rbtreeNodeBase** parent() noexcept {
 		switch(flags & rbfTypeMask) {
+			case rbfMulext:
 			case rbfSingle: {
-				// The parent node of this single node.
-				return &(type.single.parent);
-			}
-			
-			case rbfMulext: {
-				// The parent node of this external node.
-				return &(type.mulext.parent);
+				return extparent();
 			}
 			
 			case rbfMulint: {
@@ -375,6 +382,43 @@ struct rbtreeNodeBase {
 	///    - when relation > 0, the node will be inserted to the right children (will 
 	///      also not perform checking, causing undefined behavior if incorrectly used).
 	void insert(rbtreeNodeBase* target, int relation) noexcept;
+	
+	/**
+	 * Swap the external relationship (parent, left and right chilren) of two nodes, without
+	 * changing their internal properties (color, node type, etc).
+	 *
+	 * This function is only applicable to mulext node and single node, the behavior will be 
+	 * undefined if you attempt to swap two orphan/sentinel node or mulint node. And no check
+	 * will be performed since it is an internal function.
+	 */
+	void extswap(rbtreeNodeBase& another) noexcept;
+	
+	/**
+	 * Swap the current node with an orphan node, which will completely get their
+	 * relationship inverted. This is extremely helpful for implementing the swap method, by 
+	 * swapping two nodes with an orphan node consequently.
+	 *
+	 * If the current node is a sentinel node, the content will NOT be swapped because such 
+	 * behavior is expected to be done by the container manually, adding such functionality 
+	 * will bloat and slow down the code for unnecessarily.
+	 *
+	 * @param[inout] null the orphan node to swap. The behavior is undefined if the null is not 
+	 * an orphan node.
+	 * @param[in] mulextStrip when a mulext node is swapped with a null node, tell whether 
+	 * all internal node of a multinode will be swapped (as a group), or only the guard node 
+	 * will be swapped.
+	 */
+	void nullswap(rbtreeNodeBase& null) noexcept;
+	
+	/// The ordinary swap function, which completely swap the relation of two 
+	/// arbitrary node. It is based on the orphan node swapping.
+	inline void swap(rbtreeNodeBase& b) noexcept {
+		rbtreeNodeBase& a = *this;
+		rbtreeNodeBase c; // c is initially null.
+		a.nullswap(c);    // a becomes null, c holds content of a.
+		b.nullswap(a);    // b becomes null, a holds content of b.
+		c.nullswap(b);    // c returns to null, b holds content of a.
+	}
 };
 
 } // namespace exotic.
