@@ -57,7 +57,7 @@ void rbtreeNodeBase::doubleRedResolve(rbtreeNodeBase* node) noexcept {
 			
 			// Will change the subroot when it is black uncle.
 			rbtreeNodeBase*  ancestor    = *grandParent;
-			rbtreeNodeBase** subroot     = grand -> referred();
+			rbtreeNodeBase** subroot     = grand -> extreferred();
 			
 			// Check whether it is inner or outer node.
 			if(node == *parentOuter) {
@@ -121,7 +121,7 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 		
 		// The ancestor node of parent.
 		rbtreeNodeBase*   ancestor    = *parentParent;
-		rbtreeNodeBase**  subroot     = parent -> referred();
+		rbtreeNodeBase**  subroot     = parent -> extreferred();
 		
 		// Fetch the sibling node according to the node status.
 		// The sibling will never be null otherwise the black height of current
@@ -354,8 +354,8 @@ void rbtreeNodeBase::extswap(rbtreeNodeBase& b) noexcept {
 	rbtreeNodeBase *bParent = *bParentField, *bLeft = *bLeftField, *bRight = *bRightField;
 	
 	// Fetch the external links, notice that there're maybe some nil nodes as children.
-	rbtreeNodeBase **aParentRefer = a.referred();
-	rbtreeNodeBase **bParentRefer = b.referred();
+	rbtreeNodeBase **aParentRefer = a.extreferred();
+	rbtreeNodeBase **bParentRefer = b.extreferred();
 	rbtreeNodeBase **aLeftRefer = aLeft != nullptr? aLeft -> extparent() : &nilParent;
 	rbtreeNodeBase **bLeftRefer = bLeft != nullptr? bLeft -> extparent() : &nilParent;
 	rbtreeNodeBase **aRightRefer = aRight != nullptr? aRight -> extparent() : &nilParent;
@@ -386,7 +386,7 @@ void rbtreeNodeBase::nullswap(rbtreeNodeBase& null) noexcept {
 				*(null.type.single.left -> extparent()) = &null;
 			if(null.type.single.right != nullptr)
 				*(null.type.single.right -> extparent()) = &null;
-			*(referred()) = &null;
+			*(extreferred()) = &null;
 		} break;
 		
 		// The case that the node is the mulint node.
@@ -427,7 +427,7 @@ void rbtreeNodeBase::nullswap(rbtreeNodeBase& null) noexcept {
 			null.type.mulext.back -> type.mulint.mulext = &null;
 			if(null.type.mulext.back -> type.mulint.next != nullptr)
 				*(null.type.mulext.back -> type.mulint.mulext -> extparent()) = &null;
-			*(referred()) = &null;
+			*(extreferred()) = &null;
 		} break;
 		
 		// There's nothing needs to be done, because the node is an orphan.

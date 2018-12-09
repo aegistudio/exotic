@@ -252,8 +252,8 @@ class rbtreeNodeBase {
 	}
 	
 	/// Fetch the parent and two children at once, assuming both nodes are external nodes.
-	/// Chirality information might be included, Only applicable to external nodes (mulext 
-	/// or single) and otherwise behavior will be undefined.
+	/// Chirality information might be included, and only applicable to external nodes (
+	/// mulext or single) and otherwise behavior will be undefined.
 	static inline void extfetchLinks(rbtreeNodeBase* node, rbtreeNodeBase**& parent,
 		rbtreeNodeBase**& outer, rbtreeNodeBase**& inner, bool chirality = false) noexcept {
 		rbtreeNodeBase **left, **right;
@@ -319,6 +319,33 @@ class rbtreeNodeBase {
 		rbtreeNodeBase** parentLeft = (*parentNode) -> left();
 		if(*parentLeft == this) return parentLeft;
 		else return (*parentNode) -> right();
+	}
+	
+	/// The mutable field in the parent of this external node, which is pointing to this 
+	/// node. Only applicable to external nodes (mulext or single) and otherwise behavior 
+	/// will be undefined.
+	inline rbtreeNodeBase** extreferred() noexcept {
+		/// Fetch the parent of this node.
+		rbtreeNodeBase* parentNode = *extparent();
+		
+		// Return the left or right field, depending on types.
+		switch((parentNode -> flags) & rbfTypeMask) {
+			// The case that parent node is a multiple external node.
+			case rbfMulext:
+				if((parentNode -> type.mulext.front -> type.mulint.previous) == this)
+					return &(parentNode -> type.mulext.front -> type.mulint.previous);
+				else return &(parentNode -> type.mulext.front -> type.mulint.next);
+				
+			// The case that parent node is a single node.
+			case rbfSingle:
+				if(parentNode -> type.single.left == this)
+					return &(parentNode -> type.single.left);
+				else return &(parentNode -> type.single.right);
+				
+			// Other case will be regarded as parent node is sentinel.
+			default:
+				return &(parentNode -> type.sentinel.root);
+		}
 	}
 	
 	/// Check whether current node is the root node, in place.
