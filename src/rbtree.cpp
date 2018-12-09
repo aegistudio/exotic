@@ -17,15 +17,15 @@ void rbtreeNodeBase::doubleRedResolve(rbtreeNodeBase* node) noexcept {
 	// Iteratively resolve red parent.
 	while(red(node) && !node -> isRoot()) {
 		// The parent node of current node.
-		rbtreeNodeBase**  nodeParent  = node -> parent();
+		rbtreeNodeBase**  nodeParent  = node -> extparent();
 		rbtreeNodeBase*   parent      = *nodeParent;
 		rbtreeNodeBase    **parentParent, **parentLeft, **parentRight;
-		rbtreeNodeBase::fetchLinks(parent, parentParent, parentLeft, parentRight);
+		rbtreeNodeBase::extfetchLinks(parent, parentParent, parentLeft, parentRight);
 		
 		// The grand parent node of current node.
 		rbtreeNodeBase*   grand        = *parentParent;
 		rbtreeNodeBase    **grandParent, **grandLeft, **grandRight;
-		rbtreeNodeBase::fetchLinks(grand, grandParent, grandLeft, grandRight);
+		rbtreeNodeBase::extfetchLinks(grand, grandParent, grandLeft, grandRight);
 		
 		// Judge the chirality of the subtree, and assign the uncle.
 		// C   /G\    | C   /G\   (The chirality is true only if the parent node is
@@ -72,7 +72,7 @@ void rbtreeNodeBase::doubleRedResolve(rbtreeNodeBase* node) noexcept {
 				rbtreeNodeBase* c = *parentInner;            // may be null.
 				*parentInner = grand; *grandParent = parent; // P <-> G.
 				if((*grandOuter = c) != nullptr)             // (assign, test null).
-					*(c -> parent()) = grand;                // G <-> c.
+					*(c -> extparent()) = grand;             // G <-> c.
 				parent -> flipColor();                       // Pr -> Pb.
 				grand -> flipColor();                        // Gb -> Gr.
 				node = parent;
@@ -95,9 +95,9 @@ void rbtreeNodeBase::doubleRedResolve(rbtreeNodeBase* node) noexcept {
 				*nodeOuter = parent; *parentParent = node; // N <-> P.
 				*nodeInner = grand; *grandParent = node;   // N <-> G.
 				if((*parentInner = b) != nullptr)          // (assign, test null).
-					*(b -> parent()) = parent;             // P <-> b.
+					*(b -> extparent()) = parent;          // P <-> b.
 				if((*grandOuter = c) != nullptr)           // (assign, test null).
-					*(c -> parent()) = grand;              // G <-> c.
+					*(c -> extparent()) = grand;           // G <-> c.
 				node -> flipColor();                       // Nr -> Nb.
 				grand -> flipColor();                      // Gb -> Gr.
 				break;
@@ -114,10 +114,10 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 	// Iteratively resolve double black node.
 	while(!node -> isRoot()) {
 		// The parent node of current node.
-		rbtreeNodeBase**  nodeParent  = node -> parent();
+		rbtreeNodeBase**  nodeParent  = node -> extparent();
 		rbtreeNodeBase*   parent      = *nodeParent;
 		rbtreeNodeBase    **parentParent, **parentLeft, **parentRight;
-		rbtreeNodeBase::fetchLinks(parent, parentParent, parentLeft, parentRight);
+		rbtreeNodeBase::extfetchLinks(parent, parentParent, parentLeft, parentRight);
 		
 		// The ancestor node of parent.
 		rbtreeNodeBase*   ancestor    = *parentParent;
@@ -136,7 +136,7 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 		rbtreeNodeBase**  parentInner = chirality? parentLeft : parentRight;
 		rbtreeNodeBase*   sibling     = *parentInner;
 		rbtreeNodeBase    **siblingParent, **siblingOuter, **siblingInner;
-		rbtreeNodeBase::fetchLinks(sibling, siblingParent, siblingOuter, siblingInner, !chirality);
+		rbtreeNodeBase::extfetchLinks(sibling, siblingParent, siblingOuter, siblingInner, !chirality);
 	
 		// Check whether sibling is red, notice the operation could be performed
 		// in-place (so no breaking loop is required).
@@ -151,7 +151,7 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 			//   n  n n+2 n+2   /Nb\ n+2   |  n+2 n+2 n  n        n+2 /Nb\ |
 			//        (c)       n  n (c)   |      (c)             (c) n  n |
 			rbtreeNodeBase* c = *siblingInner;
-			*parentInner = c; *(c -> parent()) = parent;     // Pb <-> c.
+			*parentInner = c; *(c -> extparent()) = parent;  // Pb <-> c.
 			*siblingInner = parent; *parentParent = sibling; // Pb <-> Sr.
 			*subroot = sibling; *siblingParent = ancestor;   // Sr <-> A.
 			parent -> flipColor();                           // Pb <-> Pr.
@@ -159,7 +159,7 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 			
 			// Perform in-place substitution of sibling.
 			sibling = c;
-			rbtreeNodeBase::fetchLinks(c, siblingParent, siblingOuter, siblingInner, !chirality);
+			rbtreeNodeBase::extfetchLinks(c, siblingParent, siblingOuter, siblingInner, !chirality);
 		}
 			
 		// Now sibling node must be red, but its children may not be.
@@ -173,7 +173,7 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 			//   n  n n+1 /Srr\    /Nb\ n+1  n+1 n+1 |  /Slr\ n+1 n  n    n+1 n+1 n+1 /Nb\ |
 			//        (c) n+1 n+1  n  n (c)          | n+1 n+1 (c)                (c) n  n |
 			rbtreeNodeBase* c = *siblingInner;
-			*parentInner = c; *(c -> parent()) = parent;     // P <-> c.
+			*parentInner = c; *(c -> extparent()) = parent;  // P <-> c.
 			*siblingInner = parent; *parentParent = sibling; // P <-> Sb.
 			*subroot = sibling; *siblingParent = ancestor;   // S <-> A.
 			(*sibling).swapColor(*parent);                   // Sb,P -> S,Pb.
@@ -198,17 +198,17 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 			//       (c) (d)                         |      (d) (c)                           |
 			rbtreeNodeBase*   inner       = *siblingInner;
 			rbtreeNodeBase    **innerParent, **innerInner, **innerOuter;
-			rbtreeNodeBase::fetchLinks(inner, innerParent, innerOuter, innerInner, !chirality);
+			rbtreeNodeBase::extfetchLinks(inner, innerParent, innerOuter, innerInner, !chirality);
 			rbtreeNodeBase*   c           = *innerInner;
 			rbtreeNodeBase*   d           = *innerOuter;
 			
-			*parentInner = c; *(c -> parent()) = parent;   // P <-> c.
-			*siblingInner = d; *(d -> parent()) = sibling; // Sb <-> d.
-			*innerInner = parent; *parentParent = inner;   // P <-> Sir.
-			*innerOuter = sibling; *siblingParent = inner; // Sir <-> Sb.
-			*subroot = inner; *innerParent = ancestor;     // A <-> Sir.
-			(*inner).swapColor(*parent);                   // Sir,P -> Si,Pr.
-			parent -> flipColor();                         // Pr -> Pb.
+			*parentInner = c; *(c -> extparent()) = parent;   // P <-> c.
+			*siblingInner = d; *(d -> extparent()) = sibling; // Sb <-> d.
+			*innerInner = parent; *parentParent = inner;      // P <-> Sir.
+			*innerOuter = sibling; *siblingParent = inner;    // Sir <-> Sb.
+			*subroot = inner; *innerParent = ancestor;        // A <-> Sir.
+			(*inner).swapColor(*parent);                      // Sir,P -> Si,Pr.
+			parent -> flipColor();                            // Pr -> Pb.
 			break;
 		}
 		
@@ -346,11 +346,11 @@ void rbtreeNodeBase::extswap(rbtreeNodeBase& b) noexcept {
 	
 	// Fetch the tree nodes from each nodes.
 	rbtreeNodeBase **aParentField, **aLeftField, **aRightField;
-	rbtreeNodeBase::fetchLinks(&a, aParentField, aLeftField, aRightField);
+	rbtreeNodeBase::extfetchLinks(&a, aParentField, aLeftField, aRightField);
 	rbtreeNodeBase *aParent = *aParentField, *aLeft = *aLeftField, *aRight = *aRightField;
 	
 	rbtreeNodeBase **bParentField, **bLeftField, **bRightField;
-	rbtreeNodeBase::fetchLinks(&b, bParentField, bLeftField, bRightField);
+	rbtreeNodeBase::extfetchLinks(&b, bParentField, bLeftField, bRightField);
 	rbtreeNodeBase *bParent = *bParentField, *bLeft = *bLeftField, *bRight = *bRightField;
 	
 	// Fetch the external links, notice that there're maybe some nil nodes as children.

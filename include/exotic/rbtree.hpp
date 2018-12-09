@@ -221,15 +221,14 @@ class rbtreeNodeBase {
 		}
 	}
 	
-	/// The parent node when you are sure that you are refering to a external node (either a
-	/// single node or a mulext node). The behavior will be undefined if you are refering to 
-	/// something else and no check will be performed.
+	/// The parent node when you are sure that you are refering to a external node (mulext or 
+	/// single) and otherwise behavior will be undefined.
 	inline rbtreeNodeBase** extparent() noexcept {
 		/// As when they are external objects, their parent node will be at the first field,
 		/// so we can just return the first field of parent.
-		// if((flags & rbtreeTypeMask) == type.single.parent) 
-		// 	return &(type.single.parent);
-		// else return &(type.mulext.parent);
+		static_assert(	&(reinterpret_cast<rbtreeNodeBase*>((void*)0) -> type.single.parent) ==
+						&(reinterpret_cast<rbtreeNodeBase*>((void*)0) -> type.mulext.parent),
+			"The layout of rbtree node must guarantee that parent fields are of same offset.");
 		return &(type.single.parent);
 	}
 	
@@ -252,11 +251,31 @@ class rbtreeNodeBase {
 		}
 	}
 	
-	/// Fetch the parent and two children in at once. Chirality information might be included.
+	/// Fetch the parent and two children at once, assuming both nodes are external nodes.
+	/// Chirality information might be included, Only applicable to external nodes (mulext 
+	/// or single) and otherwise behavior will be undefined.
+	static inline void extfetchLinks(rbtreeNodeBase* node, rbtreeNodeBase**& parent,
+		rbtreeNodeBase**& outer, rbtreeNodeBase**& inner, bool chirality = false) noexcept {
+		rbtreeNodeBase **left, **right;
+		
+		parent = node -> extparent();
+		if((node -> flags & rbfTypeMask) == rbfMulext) {
+			left = &(node -> type.mulext.front -> type.mulint.previous);
+			right = &(node -> type.mulext.back -> type.mulint.next);
+		} else {
+			left = &(node -> type.single.left);
+			right = &(node -> type.single.right);
+		}
+
+		// Place the nodes according to the chirality.
+		outer = chirality? right : left;
+		inner = chirality? left : right;
+	}
+	
+	/// Fetch the parent and two children at once. Chirality information might be included.
 	static inline void fetchLinks(rbtreeNodeBase* node, rbtreeNodeBase**& parent, 
 		rbtreeNodeBase**& outer, rbtreeNodeBase**& inner, bool chirality = false) noexcept {
-		rbtreeNodeBase** left;
-		rbtreeNodeBase** right;
+		rbtreeNodeBase **left, **right;
 		
 		switch(node -> flags & rbfTypeMask) {
 			case rbfSingle: {
@@ -352,14 +371,14 @@ class rbtreeNodeBase {
 	/// red. However the uncle could be nil and being black. As the uncle will not be 
 	/// recolored while it is black, this does not matter.
 	/// It is not possible that the iteration ends at a nil node. Only applicable to 
-	/// nodes that are either single or mulext node.
+	/// external nodes (mulext or single) and otherwise behavior will be undefined.
 	static void doubleRedResolve(rbtreeNodeBase* node) noexcept;
 	
 	/// Rebalance the tree as if the current node is the double black node. The 
 	/// rebalancing process will only terminate when there's some subtree that its black 
 	/// height will not decrease or it is the subtree starting from root. 
 	/// It is not possible that the iteration ends at a nil node. Only applicable to
-	/// nodes that are either single or mulext node.
+	/// external nodes (mulext or single) and otherwise behavior will be undefined.
 	static void doubleBlackResolve(rbtreeNodeBase* node) noexcept;
 	
 	/// Destroy the whole tree from the node denoted by this sentinel node.
