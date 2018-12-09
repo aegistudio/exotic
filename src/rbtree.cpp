@@ -88,7 +88,7 @@ void rbtreeNodeBase::doubleRedResolve(rbtreeNodeBase* node) noexcept {
 				//     No Ni                   |     Ni No                    |
 				//     b  c                    |     c  b                     |
 				rbtreeNodeBase    **nodeInner, **nodeOuter;
-				rbtreeNodeBase::fetchLinks(node, nodeParent, nodeOuter, nodeInner, chirality);
+				rbtreeNodeBase::extfetchLinks(node, nodeParent, nodeOuter, nodeInner, chirality);
 				rbtreeNodeBase*   b = *nodeOuter;          // may be null.
 				rbtreeNodeBase*   c = *nodeInner;          // may be null.
 				*subroot = node; *nodeParent = ancestor;   // N <-> A.
@@ -329,8 +329,8 @@ void rbtreeNodeBase::insert(rbtreeNodeBase* target, int relation) noexcept {
 		}
 	} else {
 		// Insert the node into its parent's field first.
-		if(relation < 0) *(target -> left()) = this;
-		else *(target -> right()) = this;
+		if(relation < 0) *(target -> extleft()) = this;
+		else *(target -> extright()) = this;
 		
 		// Update the parent node of this node.
 		type.single.parent = target;

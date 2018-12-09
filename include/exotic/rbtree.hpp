@@ -160,65 +160,22 @@ class rbtreeNodeBase {
 		return nullptr;
 	}
 	
-	/// The left children's address of this node, depending on the type of node.
-	inline rbtreeNodeBase** left() noexcept {
-		switch(flags & rbfTypeMask) {			
-			case rbfSingle: {
-				// The left children is just written inside the single node.
-				return &(type.single.left);
-			}
-			
-			case rbfMulext: {
-				// The left children is the previous node of the queue head.
-				return &(type.mulext.front -> type.mulint.previous);
-			}
-			
-			case rbfMulint: {
-				if(((flags & rbfMulintMask) & rbfMulintFront) == rbfMulintFront)
-					// Current node is the multinode's previous node.
-					return &(type.mulint.previous);
-				else
-					// Find the front node in the mutinode's link and return.
-					return deprecatedFetchMulext(this) -> left();
-			}
-			
-			case rbfOrphan: {
-				// The root node of sentinel is always considered the left node.
-				return &(type.sentinel.root);
-			}
-			
-			default: {
-				return nullptr;
-			}
-		}
+	/// The left children's address of this node, depending on the type of node. 
+	/// Only applicable to external nodes (mulext or single) and otherwise behavior 
+	/// will be undefined.
+	inline rbtreeNodeBase** extleft() noexcept {
+		if((flags & rbfTypeMask) == rbfMulext) 
+			return &(type.mulext.front -> type.mulint.previous);
+		else return &(type.single.left);
 	}
 	
 	/// The right children's address of this node, depending on the type of node.
-	inline rbtreeNodeBase** right() noexcept {
-		switch(flags & rbfTypeMask) {			
-			case rbfSingle: {
-				// The left children is just written inside the single node.
-				return &(type.single.right);
-			}
-			
-			case rbfMulext: {
-				// The left children is the previous node of the queue head.
-				return &(type.mulext.back -> type.mulint.next);
-			}
-			
-			case rbfMulint: {
-				if(((flags & rbfMulintMask) & rbfMulintBack) == rbfMulintBack)
-					// Current node is the multinode's previous node.
-					return &(type.mulint.next);
-				else
-					// Find the front node in the mutinode's link and return.
-					return deprecatedFetchMulext(this) -> right();
-			}
-			
-			default: {
-				return nullptr;
-			}
-		}
+	/// Only applicable to external nodes (mulext or single) and otherwise behavior 
+	/// will be undefined.
+	inline rbtreeNodeBase** extright() noexcept {
+		if((flags & rbfTypeMask) == rbfMulext) 
+			return &(type.mulext.back -> type.mulint.next);
+		else return &(type.single.right);
 	}
 	
 	/// The parent node when you are sure that you are refering to a external node (mulext or 
@@ -230,25 +187,6 @@ class rbtreeNodeBase {
 						&(reinterpret_cast<rbtreeNodeBase*>((void*)0) -> type.mulext.parent),
 			"The layout of rbtree node must guarantee that parent fields are of same offset.");
 		return &(type.single.parent);
-	}
-	
-	/// The parent node's address of this node, depending on the type of node.
-	inline rbtreeNodeBase** parent() noexcept {
-		switch(flags & rbfTypeMask) {
-			case rbfMulext:
-			case rbfSingle: {
-				return extparent();
-			}
-			
-			case rbfMulint: {
-				// Find it in the external node.
-				return deprecatedFetchMulext(this) -> parent();
-			}
-			
-			default: {
-				return nullptr;
-			}
-		}
 	}
 	
 	/// Fetch the parent and two children at once, assuming both nodes are external nodes.
@@ -270,55 +208,6 @@ class rbtreeNodeBase {
 		// Place the nodes according to the chirality.
 		outer = chirality? right : left;
 		inner = chirality? left : right;
-	}
-	
-	/// Fetch the parent and two children at once. Chirality information might be included.
-	static inline void fetchLinks(rbtreeNodeBase* node, rbtreeNodeBase**& parent, 
-		rbtreeNodeBase**& outer, rbtreeNodeBase**& inner, bool chirality = false) noexcept {
-		rbtreeNodeBase **left, **right;
-		
-		switch(node -> flags & rbfTypeMask) {
-			case rbfSingle: {
-				// The parent node of this single node.
-				parent = &(node -> type.single.parent);
-				left = &(node -> type.single.left);
-				right = &(node -> type.single.right);
-			} break;
-			
-			case rbfMulint: {
-				// Find it in the external node.
-				node = deprecatedFetchMulext(node);
-			}
-			
-			case rbfMulext: {
-				// The parent node of this external node.
-				parent = &(node -> type.mulext.parent);
-				left = &(node -> type.mulext.front -> type.mulint.previous);
-				right = &(node -> type.mulext.back -> type.mulint.next);
-			} break;
-			
-			case rbfOrphan:
-			default: {
-				parent = nullptr;
-				left = &(node -> type.sentinel.root);
-				right = &(node -> type.sentinel.root);
-			} break;
-		}
-
-		// Place the nodes according to the chirality.
-		outer = chirality? right : left;
-		inner = chirality? left : right;
-	}
-	
-	/// The mutable field in the parent of this node, which is pointing to this node.
-	inline rbtreeNodeBase** referred() noexcept {
-		// Fetch the parent of this node.
-		rbtreeNodeBase** parentNode = parent();
-		
-		// Fetch the pointing node of this node.
-		rbtreeNodeBase** parentLeft = (*parentNode) -> left();
-		if(*parentLeft == this) return parentLeft;
-		else return (*parentNode) -> right();
 	}
 	
 	/// The mutable field in the parent of this external node, which is pointing to this 
@@ -392,41 +281,56 @@ class rbtreeNodeBase {
 		}
 	}
 
-	/// Rebalance the tree as if the current node is the newly inserted red node, and 
-	/// its parent is also a red node. Only useful when the node is not the mulint node.
-	/// It is not possible that its grand parent does not exist with its parent being 
-	/// red. However the uncle could be nil and being black. As the uncle will not be 
-	/// recolored while it is black, this does not matter.
-	/// It is not possible that the iteration ends at a nil node. Only applicable to 
-	/// external nodes (mulext or single) and otherwise behavior will be undefined.
+	/**
+	 * @brief Rebalance the tree as if the current node is the newly inserted red node, 
+	 * and its parent is also a red node.
+	 *
+	 * Only useful when the node is not the mulint node. It is not possible that its 
+	 * grand parent does not exist with its parent being red. However the uncle could be 
+	 * nil and being black. As the uncle will not be recolored while it is black, this 
+	 * does not matter.
+	 *
+	 * It is not possible that the iteration ends at a nil node. Only applicable to 
+	 * external nodes (mulext or single) and otherwise behavior will be undefined.
+	 */
 	static void doubleRedResolve(rbtreeNodeBase* node) noexcept;
 	
-	/// Rebalance the tree as if the current node is the double black node. The 
-	/// rebalancing process will only terminate when there's some subtree that its black 
-	/// height will not decrease or it is the subtree starting from root. 
-	/// It is not possible that the iteration ends at a nil node. Only applicable to
-	/// external nodes (mulext or single) and otherwise behavior will be undefined.
+	/**
+	 * @brief Rebalance the tree as if the current node is the double black node. 
+	 *
+	 * The rebalancing process will only terminate when there's some subtree that its 
+	 * black height will not decrease or it is the subtree starting from root. 
+	 *
+	 * It is not possible that the iteration ends at a nil node. Only applicable to
+	 * external nodes (mulext or single) and otherwise behavior will be undefined.
+	 */
 	static void doubleBlackResolve(rbtreeNodeBase* node) noexcept;
 	
-	/// Destroy the whole tree from the node denoted by this sentinel node.
-	/// The specified node must be sentinel (no check will be performed, and will
-	/// cause your code to run into unpredictable state if not so).
-	/// The destruction order is not guaranteed, the caller should always regard such
-	/// operation as atomic.
-	/// Of course, you should never share the rbtree with other threads while perform
-	/// pruning, otherwise the state of tree will be undefined.
+	/**
+	 * @brief Destroy the whole tree from the node denoted by this sentinel node.
+	 * 
+	 * The specified node must be sentinel (no check will be performed, and will
+	 * cause your code to run into unpredictable state if not so).
+	 *
+	 * The destruction order is not guaranteed, the caller should always regard such
+	 * operation as atomic. Of course, you should never share the rbtree with other 
+	 * threads while perform pruning, otherwise the state of tree will be undefined.
+	 */
 	static void sentinelPrune(rbtreeNodeBase* node) noexcept;
 	
-	/// The operation of inserting a node into the tree with given relation.
-	/// @param[in] target the target node to insert the new node.
-	/// @param[in] relation where to insert the new node:
-	///    - when relation < 0, the node will be inserted to the left children (will 
-	///      not check whether there's node on left subtree of target, will cause undefined
-	///      behavior when incorrect parameter is provided).
-	///    - when relation == 0, the node will be inserted as the equivalent node of this
-	///      node. The mulext/mulint node logic will be included.
-	///    - when relation > 0, the node will be inserted to the right children (will 
-	///      also not perform checking, causing undefined behavior if incorrectly used).
+	/**
+	 * @brief The operation of inserting a node into the tree with given relation.
+	 * @param[in] target the target node to insert the new node. The target node must be 
+	 *            an external node otherwise behavior will be undefined.
+	 * @param[in] relation where to insert the new node:
+	 *    - when relation < 0, the node will be inserted to the left children (will 
+	 *      not check whether there's node on left subtree of target, will cause undefined
+	 *      behavior when incorrect parameter is provided).
+	 *    - when relation == 0, the node will be inserted as the equivalent node of this
+	 *      node. The mulext/mulint node logic will be included.
+	 *    - when relation > 0, the node will be inserted to the right children (will 
+	 *      also not perform checking, causing undefined behavior if incorrectly used).
+	 */
 	void insert(rbtreeNodeBase* target, int relation) noexcept;
 	
 	/**
