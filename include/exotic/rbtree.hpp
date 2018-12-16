@@ -58,6 +58,9 @@ class rbtreeNodeBase {
 		
 		/// Neither the front node nor the back node.
 		rbfMulintInternal = 0,
+
+		/// The node is both front and back of the mulint strip.
+		rbfMulintFrontBack = 12,
 		
 		/// The mask for checking a multinode's position.
 		rbfMulintMask = 12,
@@ -332,6 +335,17 @@ class rbtreeNodeBase {
 	 *      also not perform checking, causing undefined behavior if incorrectly used).
 	 */
 	void insert(rbtreeNodeBase* target, int relation) noexcept;
+	
+	/**
+	 * @brief The operation of removing the current node from the tree, and this node will 
+	 * therefore becomes an orphan node.
+	 *
+	 * If the node is an internal node or orphan node, no tree rebalancing will be performed. 
+	 * Otherwise if the node is external node with two children, the leftmost node of the 
+	 * right children will always be selected and replacing the current node. And tree 
+	 * rebalancing will be performed soon after the removing node is a black node.
+	 */
+	void erase() noexcept;
 	
 	/**
 	 * Swap the external relationship (parent, left and right chilren) of two nodes, without

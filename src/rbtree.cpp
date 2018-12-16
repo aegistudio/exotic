@@ -12,7 +12,7 @@
 
 namespace exotic {
 
-/// Implementation for rbtreeNodeBase::doubleRedResolve().
+/// Implementation of rbtreeNodeBase::doubleRedResolve().
 void rbtreeNodeBase::doubleRedResolve(rbtreeNodeBase* node) noexcept {
 	// Iteratively resolve red parent.
 	while(red(node) && !node -> isRoot()) {
@@ -109,7 +109,7 @@ void rbtreeNodeBase::doubleRedResolve(rbtreeNodeBase* node) noexcept {
 	if(red(node) && node -> isRoot()) node -> flipColor();
 }
 
-/// Implementation for rbtreeNodeBase::doubleBlackResolve().
+/// Implementation of rbtreeNodeBase::doubleBlackResolve().
 void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 	// Iteratively resolve double black node.
 	while(!node -> isRoot()) {
@@ -124,8 +124,11 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 		rbtreeNodeBase**  subroot     = parent -> extreferred();
 		
 		// Fetch the sibling node according to the node status.
-		// The sibling will never be null otherwise the black height of current
-		// subtree is 0, which is impossible.
+		// The sibling will never be null otherwise the black height of current subtree 
+		// is 0, which is impossible. However, it is possible that the children of sibling
+		// to be nullptr if current node is nil. (This happends when the height of the 
+		// children of sibling is n+1 when the children of current node is n, and n = 0 if
+		// current node is nil node).
 		
 		// Judge the chirality of the nodes and fetch the sibling.
 		//      /P\     |     /P\      |
@@ -173,7 +176,8 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 			//   n  n n+1 /Srr\    /Nb\ n+1  n+1 n+1 |  /Slr\ n+1 n  n    n+1 n+1 n+1 /Nb\ |
 			//        (c) n+1 n+1  n  n (c)          | n+1 n+1 (c)                (c) n  n |
 			rbtreeNodeBase* c = *siblingInner;
-			*parentInner = c; *(c -> extparent()) = parent;  // P <-> c.
+			if((*parentInner = c) != nullptr)
+				*(c -> extparent()) = parent;                // P <-> c.
 			*siblingInner = parent; *parentParent = sibling; // P <-> Sb.
 			*subroot = sibling; *siblingParent = ancestor;   // S <-> A.
 			(*sibling).swapColor(*parent);                   // Sb,P -> S,Pb.
@@ -202,13 +206,15 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 			rbtreeNodeBase*   c           = *innerInner;
 			rbtreeNodeBase*   d           = *innerOuter;
 			
-			*parentInner = c; *(c -> extparent()) = parent;   // P <-> c.
-			*siblingInner = d; *(d -> extparent()) = sibling; // Sb <-> d.
-			*innerInner = parent; *parentParent = inner;      // P <-> Sir.
-			*innerOuter = sibling; *siblingParent = inner;    // Sir <-> Sb.
-			*subroot = inner; *innerParent = ancestor;        // A <-> Sir.
-			(*inner).swapColor(*parent);                      // Sir,P -> Si,Pr.
-			parent -> flipColor();                            // Pr -> Pb.
+			if((*parentInner = c) != nullptr)
+				*(c -> extparent()) = parent;              // P <-> c.
+			if((*siblingInner = d) != nullptr)
+				*(d -> extparent()) = sibling;             // Sb <-> d.
+			*innerInner = parent; *parentParent = inner;   // P <-> Sir.
+			*innerOuter = sibling; *siblingParent = inner; // Sir <-> Sb.
+			*subroot = inner; *innerParent = ancestor;     // A <-> Sir.
+			(*inner).swapColor(*parent);                   // Sir,P -> Si,Pr.
+			parent -> flipColor();                         // Pr -> Pb.
 			break;
 		}
 		
@@ -233,7 +239,7 @@ void rbtreeNodeBase::doubleBlackResolve(rbtreeNodeBase* node) noexcept {
 	}
 }
 
-/// Implementation for rbtreeNodeBase::sentinelPrune().
+/// Implementation of rbtreeNodeBase::sentinelPrune().
 void rbtreeNodeBase::sentinelPrune(rbtreeNodeBase* root) noexcept {
 	rbtreeNodeBase* node = root -> type.sentinel.root;
 	if(node == nullptr) return;
@@ -294,13 +300,13 @@ void rbtreeNodeBase::sentinelPrune(rbtreeNodeBase* root) noexcept {
 	}
 }
 
-/// Implementation for rbtreeNodeBase::insert().
+/// Implementation of rbtreeNodeBase::insert().
 void rbtreeNodeBase::insert(rbtreeNodeBase* target, int relation) noexcept {
 	if(relation == 0) {
 		// Judge what to do with the node, can only be either single or mulext.
 		if((target -> flags & rbfTypeMask) == rbfSingle) {
 			// Make current node the mulint node.
-			flags = static_cast<rbtreeFlag>(rbfMulint | rbfMulintFront | rbfMulintBack);
+			flags = static_cast<rbtreeFlag>(rbfMulint | rbfMulintFrontBack);
 			type.mulint.previous = target -> type.single.left;
 			type.mulint.next = target -> type.single.right;
 			type.mulint.mulext = target;
@@ -339,7 +345,7 @@ void rbtreeNodeBase::insert(rbtreeNodeBase* target, int relation) noexcept {
 	}
 }
 
-/// Implementation for rbtreeNodeBase::extswap().
+/// Implementation of rbtreeNodeBase::extswap().
 void rbtreeNodeBase::extswap(rbtreeNodeBase& b) noexcept {
 	rbtreeNodeBase& a = *this;
 	rbtreeNodeBase* nilParent;	// Just an eye candy for updating nil nodes.
@@ -352,24 +358,37 @@ void rbtreeNodeBase::extswap(rbtreeNodeBase& b) noexcept {
 	rbtreeNodeBase **bParentField, **bLeftField, **bRightField;
 	rbtreeNodeBase::extfetchLinks(&b, bParentField, bLeftField, bRightField);
 	rbtreeNodeBase *bParent = *bParentField, *bLeft = *bLeftField, *bRight = *bRightField;
-	
-	// Fetch the external links, notice that there're maybe some nil nodes as children.
-	rbtreeNodeBase **aParentRefer = a.extreferred();
-	rbtreeNodeBase **bParentRefer = b.extreferred();
-	rbtreeNodeBase **aLeftRefer = aLeft != nullptr? aLeft -> extparent() : &nilParent;
-	rbtreeNodeBase **bLeftRefer = bLeft != nullptr? bLeft -> extparent() : &nilParent;
-	rbtreeNodeBase **aRightRefer = aRight != nullptr? aRight -> extparent() : &nilParent;
-	rbtreeNodeBase **bRightRefer = bRight != nullptr? bRight -> extparent() : &nilParent;
-	
-	// Perform swapping by updating the field links.
-	*aParentField = bParent; *bParentField = aParent;
-	*aLeftField = bLeft; *bLeftField = aLeft;
-	*aRightField = bRight; *bRightField = aRight;
-	*aParentRefer = *aLeftRefer = *aRightRefer = &b; 
-	*bParentRefer = *bLeftRefer = *bRightRefer = &a;
+
+	// Eliminate the special condition that a and b are adjacent nodes (parents).
+	if((bParent == &a) || (aParent == &b)) {
+		// Initialize a pseudo tree with single root node.
+		rbtreeNodeBase pseudoTreeSentinel, pseudoTreeRoot;
+		pseudoTreeRoot.type.single.parent = &pseudoTreeSentinel;
+		pseudoTreeSentinel.type.sentinel.root = &pseudoTreeRoot;
+		
+		// Perform a null swapping style transition.
+		pseudoTreeRoot.extswap(b);
+		a.extswap(b);
+		pseudoTreeRoot.extswap(a);
+	} else {			
+		// Fetch the external links, notice that there're maybe some nil nodes as children.
+		rbtreeNodeBase **aParentRefer = a.extreferred();
+		rbtreeNodeBase **bParentRefer = b.extreferred();
+		rbtreeNodeBase **aLeftRefer = aLeft != nullptr? aLeft -> extparent() : &nilParent;
+		rbtreeNodeBase **bLeftRefer = bLeft != nullptr? bLeft -> extparent() : &nilParent;
+		rbtreeNodeBase **aRightRefer = aRight != nullptr? aRight -> extparent() : &nilParent;
+		rbtreeNodeBase **bRightRefer = bRight != nullptr? bRight -> extparent() : &nilParent;
+		
+		// Perform swapping by updating the field links.
+		*aParentField = bParent; *bParentField = aParent;
+		*aLeftField = bLeft; *bLeftField = aLeft;
+		*aRightField = bRight; *bRightField = aRight;
+		*aParentRefer = *aLeftRefer = *aRightRefer = &b; 
+		*bParentRefer = *bLeftRefer = *bRightRefer = &a;
+	}
 }
 
-/// Implementation for rbtreeNodeBase::nullswap().
+/// Implementation of rbtreeNodeBase::nullswap().
 void rbtreeNodeBase::nullswap(rbtreeNodeBase& null) noexcept {
 	// Copy the node internal status first.
 	switch((flags & rbfTypeMask)) {
@@ -442,5 +461,161 @@ void rbtreeNodeBase::nullswap(rbtreeNodeBase& null) noexcept {
 	type.sentinel.root = nullptr;
 	type.sentinel._2 = nullptr;
 }
+
+/// Implementation of rbtreeNodeBase::erase().
+void rbtreeNodeBase::erase() noexcept {
+	// Remove the node from its outer structure first.
+	switch((flags & rbfTypeMask)) {
+		// The node is currently an internal node, just remove it from the internal list.
+		case rbfMulint: {
+			// See whether the node is the only internal node.
+			if((flags & rbfMulintFrontBack) == rbfMulintFrontBack) {
+				// The node is the only internal node of the strip.
+				rbtreeNodeBase* mulext = type.mulint.mulext;
+				mulext -> flags = static_cast<rbtreeFlag>
+					(((flags | rbfTypeMask) ^ rbfTypeMask) | rbfSingle);
+				mulext -> type.single.left = type.mulint.previous;
+				mulext -> type.single.right = type.mulint.next;
+			} else {				
+				// Update the front node of the mulint nodes.
+				if((flags & rbfMulintFront) != 0) {
+					type.mulint.mulext -> type.mulext.front = type.mulint.next;
+					type.mulint.next -> type.mulint.mulext = type.mulint.mulext;
+					type.mulint.next -> flags = static_cast<rbtreeFlag>(
+						type.mulint.next -> flags | rbfMulintFront);
+				}
+				
+				// Update the back node of the mulint nodes.
+				if((flags & rbfMulintBack) != 0) {
+					type.mulint.mulext -> type.mulext.back = type.mulint.previous;
+					type.mulint.previous -> type.mulint.mulext = type.mulint.mulext;
+					type.mulint.previous -> flags = static_cast<rbtreeFlag>(
+						type.mulint.previous -> flags | rbfMulintBack);
+				}
+				
+				// Update the references of the previous and next nodes.
+				type.mulint.next -> type.mulint.previous = type.mulint.previous;
+				type.mulint.previous -> type.mulint.next = type.mulint.next;
+			}
+		} break;
+		
+		// The node is currently an external node, just remove and replace it with the 
+		// the previous node.
+		case rbfMulext: {
+			// Fetch the back node reference.
+			rbtreeNodeBase *back = type.mulext.back;
+			
+			// No matter under which condition, the back node must replace the current.
+			rbtreeNodeBase **parentField, **leftField, **rightField;
+			rbtreeNodeBase::extfetchLinks(this, parentField, leftField, rightField);
+			
+			// Update the references to the back node.
+			*(extreferred()) = back;
+			if(*leftField != nullptr) *((*leftField) -> extparent()) = back;
+			if(*rightField != nullptr) *((*rightField) -> extparent()) = back;
+				
+			// See whether the back node is the only internal node.
+			if((back -> flags & rbfMulintFrontBack) != 0) {
+				// The node is the only node, so replace it as the single node.
+				
+				// Update the back node status.
+				back -> flags = static_cast<rbtreeFlag>
+					(((flags | rbfTypeMask) ^ rbfTypeMask) | rbfSingle);
+				static_assert(
+					&(reinterpret_cast<rbtreeNodeBase*>((void*)0) -> type.mulint.previous) ==
+					&(reinterpret_cast<rbtreeNodeBase*>((void*)0) -> type.single.left),
+					"The layout of rbtree node must guarantee that left node of single node "
+					"and left node of mulint node have the same offset.");
+				static_assert(
+					&(reinterpret_cast<rbtreeNodeBase*>((void*)0) -> type.mulint.next) ==
+					&(reinterpret_cast<rbtreeNodeBase*>((void*)0) -> type.single.right),
+					"The layout of rbtree node must guarantee that right node of single node "
+					"and right node of mulint node have the same offset.");
+				back -> type.single.parent = type.mulext.parent;
+			} else {
+				// There're more previous node of the external node, so replace the right 
+				// node as the mulext node.
+				
+				// Make the previous node of back node to be the new back node.
+				rbtreeNodeBase* newBack = back -> type.mulint.previous;
+				newBack -> type.mulint.next = back -> type.mulint.next;
+				newBack -> type.mulint.mulext = back;
+				newBack -> flags = static_cast<rbtreeFlag>(newBack -> flags | rbfMulintBack);
+				
+				// Make the current back node to be the new mulext node.
+				back -> flags = static_cast<rbtreeFlag>
+					(((flags | rbfTypeMask) ^ rbfTypeMask) | rbfMulext);
+				back -> type.mulext.front = type.mulext.front;
+				back -> type.mulext.back = newBack;
+				back -> type.mulext.parent = type.mulext.parent;
+			}
+		} break;
+		
+		// The node is currently a single node, so perform the normal removal. This might 
+		// be the most verbose step while removing.
+		case rbfSingle: {
+			// Fetch the linkages first.
+			rbtreeNodeBase **parentField, **leftField, **rightField;
+			rbtreeNodeBase::extfetchLinks(this, parentField, leftField, rightField);
+			
+			// If the node has currently two children, swap it with the leftmost node of
+			// the right subtree.
+			if(*leftField != nullptr && *rightField != nullptr) {
+				// Iteratively find the leftmost node of right subtree.
+				rbtreeNodeBase* leftmostNode = *rightField;
+				rbtreeNodeBase* lefterNode = nullptr;
+				while((lefterNode = *(leftmostNode -> extleft())) != nullptr)
+					leftmostNode = lefterNode;
+				
+				// Swap the current node with the leftmost node.
+				extswap(*leftmostNode);
+				swapColor(*leftmostNode);
+				
+				// Refetch the external links.
+				rbtreeNodeBase::extfetchLinks(this, parentField, leftField, rightField);
+			}
+			
+			// Judge the condition of single of none children.
+			if(*leftField != nullptr || *rightField != nullptr) {
+				// Now the node has one child Let us do a small analysis on color.
+				// 0. Both node being red is impossible.
+				// 1. If both the node and the child are black, then the black height of 
+				//    the child subtree will be greater than the nil subtree prior to the 
+				//    deletion, which violates that the tree being a red-black tree.
+				// 2. If the node is black while its child is red, then the property of 
+				//    red-black tree holds, and to rebalance we just need to swap their
+				//    color and replace the node with the children.
+				// 3. If the node is red while its children is black, then the black 
+				//    height of the child subtree is greater than the nil subtree, which 
+				//    is identical to condition 1.
+				// As a conclusion, only condition 2 could occur while deleting.
+				rbtreeNodeBase** referred = extreferred();
+				rbtreeNodeBase*  child = *leftField != nullptr? *leftField : *rightField;
+				*(child -> extparent()) = *parentField;
+				*referred = child;
+				child -> flipColor();
+			} else {
+				// The node has no children, so it is the time to remove this node.
+				
+				// The node is black, removing it will reduce the black height, so make 
+				// the node a double black node first.
+				if(black(this)) doubleBlackResolve(this);
+				
+				// Now removing the node will be just ok, so unlink the node.
+				rbtreeNodeBase** referred = extreferred();
+				*referred = nullptr;
+			}
+		} break;
+		
+		// Current node is already an orphan node, nothing needs to be done.
+		default: return;
+	}
+	
+	// Reset the current node to an orphan node.
+	flags = rbfOrphan;
+	type.sentinel._1 = nullptr;
+	type.sentinel.root = nullptr;
+	type.sentinel._2 = nullptr;
+}	
 
 } // namespace exotic.
